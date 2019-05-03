@@ -1,14 +1,14 @@
 package sep
 
-import log "git.sr.ht/~rumpelsepp/logging"
+import "git.sr.ht/~rumpelsepp/rlog"
 
 var (
-	announceLogger = log.NewLogger()
-	dialLogger     = log.NewLogger()
-	muxLogger      = log.NewLogger()
-	tlsLogger      = log.NewLogger()
-	relayLogger    = log.NewLogger()
-	resolveLogger  = log.NewLogger()
+	announceLogger = rlog.NewLogger()
+	dialLogger     = rlog.NewLogger()
+	muxLogger      = rlog.NewLogger()
+	tlsLogger      = rlog.NewLogger()
+	relayLogger    = rlog.NewLogger()
+	resolveLogger  = rlog.NewLogger()
 )
 
 func InitLogging(loglevel int) {
@@ -30,5 +30,5 @@ func InitLogging(loglevel int) {
 	resolveLogger.SetLogLevel(loglevel)
 	resolveLogger.SetModule("resolve")
 
-	log.SetLogLevel(loglevel)
+	rlog.SetLogLevel(loglevel)
 }

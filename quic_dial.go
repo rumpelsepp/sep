@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"git.sr.ht/~rumpelsepp/rlog"
 	quic "github.com/lucas-clemente/quic-go"
-	log "git.sr.ht/~rumpelsepp/logging"
 )
 
 type quicDialer struct {
@@ -40,7 +40,7 @@ func (d *quicDialer) DialTimeout(network, target string, timeout time.Duration) 
 	for _, addr := range addrs {
 		s, err := quic.DialAddr(addr, tlsConfig, nil)
 		if err != nil {
-			log.Debugln(err)
+			rlog.Debugln(err)
 			continue
 		}
 
@@ -52,7 +52,7 @@ func (d *quicDialer) DialTimeout(network, target string, timeout time.Duration) 
 		return nil, fmt.Errorf("could not connect to: %s", target)
 	}
 
-	log.Debugf("established quic connection to: %s", session.RemoteAddr())
+	rlog.Debugf("established quic connection to: %s", session.RemoteAddr())
 
 	return &quicConn{
 		session:  session,

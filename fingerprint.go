@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"git.sr.ht/~rumpelsepp/ni-go"
+	"git.sr.ht/~rumpelsepp/ni"
 	"golang.org/x/crypto/sha3"
 )
 

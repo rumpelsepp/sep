@@ -79,14 +79,14 @@ func dnsLookupNode(fingerprint *Fingerprint) ([]string, error) {
 	for _, txt := range txts {
 		parts := strings.Split(txt, "=")
 		if len(parts) != 2 {
-			resolveLogger.Warnf("%s entry is corrupt", txt)
+			resolveLogger.Warningf("%s entry is corrupt", txt)
 			continue
 		}
 
 		if parts[0] == "addr" {
 			parsedURL, err := url.Parse(parts[1])
 			if err != nil {
-				resolveLogger.Warnf("%s: %s", txt, err)
+				resolveLogger.Warningf("%s: %s", txt, err)
 				continue
 			}
 

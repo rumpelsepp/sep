@@ -27,7 +27,7 @@ type RelayConn struct {
 }
 
 // func RequestRelay(conn net.Conn, req *RelayRequest) (*RelayResponse, error) {
-// 	log.Debugln("send RelayRequest")
+// 	rlog.Debugln("send RelayRequest")
 //
 // 	if err := writeRelayRequest(conn, req); err != nil {
 // 		return nil, err
@@ -38,7 +38,7 @@ type RelayConn struct {
 // 		return nil, err
 // 	}
 //
-// 	log.Tracef("response from relay: %+v", resp)
+// 	rlog.Debugf("response from relay: %+v", resp)
 //
 // 	return resp, nil
 // }

@@ -48,7 +48,7 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 		return nil, err
 	}
 
-	tlsLogger.Tracef("%+v", state)
+	tlsLogger.Debugf("%+v", state)
 	tlsLogger.Debugf("connected to: %s", conn.RemoteAddr())
 	tlsLogger.Debugf("ALPN: %s", state.NegotiatedProtocol)
 	tlsLogger.Debugf("local fingerprint : %s", localFingerprint.String())
@@ -195,7 +195,7 @@ func (m *sepMuxer) OpenStream() (Stream, error) {
 }
 
 func (c *TCPConn) initMuxer() error {
-	muxLogger.Traceln("initializing multiplexer...")
+	muxLogger.Debugln("initializing multiplexer...")
 
 	var (
 		err   error
@@ -232,14 +232,14 @@ func (c *TCPConn) AcceptStream() (Stream, error) {
 		c.initMuxer()
 	}
 
-	muxLogger.Traceln("accepting stream...")
+	muxLogger.Debugln("accepting stream...")
 
 	stream, err := c.multiplexer.AcceptStream()
 	if err != nil {
 		return nil, err
 	}
 
-	muxLogger.Tracef("got stream: %+v", stream)
+	muxLogger.Debugf("got stream: %+v", stream)
 
 	return stream, nil
 }
@@ -249,14 +249,14 @@ func (c *TCPConn) OpenStream() (Stream, error) {
 		c.initMuxer()
 	}
 
-	muxLogger.Traceln("opening stream...")
+	muxLogger.Debugln("opening stream...")
 
 	stream, err := c.multiplexer.OpenStream()
 	if err != nil {
 		return nil, err
 	}
 
-	muxLogger.Tracef("got stream: %+v", stream)
+	muxLogger.Debugf("got stream: %+v", stream)
 
 	return stream, nil
 }

@@ -12,7 +12,7 @@ func (conn *TCPConn) reAccept() (*TCPConn, error) {
 		TLSConfig:    tlsConfig,
 	}
 
-	relayLogger.Tracef("drop SEP-RELAY handler and listen for SEP...")
+	relayLogger.Debugf("drop SEP-RELAY handler and listen for SEP...")
 
 	c, err := tcpServer(conn.downgrade(), sepConfig)
 	if err != nil {
@@ -23,7 +23,7 @@ func (conn *TCPConn) reAccept() (*TCPConn, error) {
 }
 
 func (conn *TCPConn) downgrade() *net.TCPConn {
-	relayLogger.Tracef("dropping TLS connection")
+	relayLogger.Debugf("dropping TLS connection")
 
 	conn.tlsConn = nil
 

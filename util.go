@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	log "git.sr.ht/~rumpelsepp/logging"
+	"git.sr.ht/~rumpelsepp/rlog"
 )
 
 // TODO: error
@@ -21,7 +21,7 @@ func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, 
 
 	go func() {
 		if n, err := io.Copy(right, left); err != nil {
-			log.Debugln(err)
+			rlog.Debugln(err)
 			err1 = err
 		} else {
 			n1 = int(n)
@@ -33,7 +33,7 @@ func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, 
 
 	go func() {
 		if n, err := io.Copy(left, right); err != nil {
-			log.Debugln(err)
+			rlog.Debugln(err)
 			err2 = err
 		} else {
 			n2 = int(n)

@@ -52,7 +52,7 @@ func (a *Announcer) Announce(addresses []string) (time.Duration, error) {
 	}
 
 	announceLogger.Debugf("PUT request to: %s", u.String())
-	announceLogger.Tracef("JSON payload: %s", b)
+	announceLogger.Debugf("JSON payload: %s", b)
 
 	reader := bytes.NewReader(b)
 	req, err := http.NewRequest("PUT", u.String(), reader)
@@ -72,13 +72,13 @@ func (a *Announcer) Announce(addresses []string) (time.Duration, error) {
 		// Read it if available and log it.
 		defer resp.Body.Close()
 		if body, err := ioutil.ReadAll(resp.Body); err != nil {
-			announceLogger.Warnln(string(body))
+			announceLogger.Warningln(string(body))
 		}
 
 		return 0, fmt.Errorf("Status Code %d", resp.StatusCode)
 	}
 
-	announceLogger.Tracef("answer: %+v", resp)
+	announceLogger.Debugf("answer: %+v", resp)
 
 	reannounce := resp.Header.Get("reannounce-after")
 	reannounceDur, err := time.ParseDuration(reannounce)
