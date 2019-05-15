@@ -143,7 +143,7 @@ func (r *Resolver) Resolve(node string) ([]string, error) {
 		}
 
 		if (r.Flags & ResolveFlagUseHTTPs) != 0 {
-			addrs, err := httpsLookup(fingerprint.WellKnownURI())
+			addrs, err := httpsLookup(fingerprint)
 			if err == nil {
 				sortByRFC6724(addrs)
 				resolveLogger.Debugf("Got addresses %s via HTTPs", addrs)
@@ -172,19 +172,14 @@ func (r *Resolver) Resolve(node string) ([]string, error) {
 	return nil, fmt.Errorf("discover %s: not found", node)
 }
 
-type ResolvePayload struct {
-	Addresses []string `json:"addresses"`
-	TTL       int      `json:"ttl"`
-}
-
-func httpsLookup(endpoint string) ([]string, error) {
-	resp, err := http.Get(endpoint)
+func httpsLookup(fingerprint *Fingerprint) ([]string, error) {
+	resp, err := http.Get(fingerprint.WellKnownURI())
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", endpoint, resp.Status)
+		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
 	}
 
 	rawData, err := ioutil.ReadAll(resp.Body)
@@ -193,11 +188,20 @@ func httpsLookup(endpoint string) ([]string, error) {
 		return nil, err
 	}
 
-	var addresses ResolvePayload
-	err = json.Unmarshal(rawData, &addresses)
+	var payload AnnouncePayload
+	err = json.Unmarshal(rawData, &payload)
 	if err != nil {
 		return nil, err
 	}
 
-	return addresses.Addresses, nil
+	ok, err := payload.checkSignature(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return payload.Addresses, nil
 }

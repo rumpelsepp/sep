@@ -46,6 +46,77 @@ type AnnouncePayload struct {
 	Options    *AnnounceOptions `json:"options,omitempty"`
 }
 
+func (a *AnnouncePayload) checkSignature(fingerprint *Fingerprint) (bool, error) {
+	// TODO: Currently this interface supports only one data record at a time.
+	//       It should be possible to combine them arbitrarily.
+	var data interface{}
+	switch {
+	case a.Addresses != nil:
+		data = a.Addresses
+	case a.Delegators != nil:
+		data = a.Delegators
+	case a.Relays != nil:
+		data = a.Relays
+	case a.Blob != "":
+		data = a.Blob
+	default:
+		return false, fmt.Errorf("no data to verify")
+	}
+
+	var timestamp time.Time
+	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
+		return false, err
+	}
+
+	ser, err := serializeRecordSet(data, a.TTL, timestamp)
+	if err != nil {
+		return false, err
+	}
+
+	rawPubKey, err := base64.StdEncoding.DecodeString(a.PubKey)
+	if err != nil {
+		return false, err
+	}
+
+	// TODO: check if remote public key is equal to the expected publickey
+	// Hash the key and compare digest with fingerprint
+
+	digest := sha3.Sum256(rawPubKey)
+
+	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
+		return false, fmt.Errorf("unexpected public key")
+	}
+
+	// Build data which is needed to compute the digest
+	ser += base64.StdEncoding.EncodeToString(rawPubKey)
+	digest = sha3.Sum256([]byte(ser))
+
+	rawSignature, err := base64.StdEncoding.DecodeString(a.Signature)
+	if err != nil {
+		return false, err
+	}
+
+	var signature ecdsaSignature
+	_, err = asn1.Unmarshal(rawSignature, &signature)
+	if err != nil {
+		return false, err
+	}
+
+	remotePK, err := x509.ParsePKIXPublicKey(rawPubKey)
+	if err != nil {
+		return false, err
+	}
+
+	// FIXME: don't panic
+	remotePubKey := remotePK.(*ecdsa.PublicKey)
+
+	if ok := ecdsa.Verify(remotePubKey, digest[:], signature.R, signature.S); !ok {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func NewAnnouncer(addr string, keypair *tls.Certificate, options *AnnounceOptions) Announcer {
 	client := &http.Client{
 		Transport: &http.Transport{
