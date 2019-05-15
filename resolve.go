@@ -194,6 +194,10 @@ func httpsLookup(fingerprint *Fingerprint) ([]string, error) {
 		return nil, err
 	}
 
+	if payload.Version != 1 {
+		return nil, fmt.Errorf("unsupported api version")
+	}
+
 	ok, err := payload.checkSignature(fingerprint)
 	if err != nil {
 		return nil, err

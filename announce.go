@@ -43,6 +43,7 @@ type AnnouncePayload struct {
 	TTL        int              `json:"ttl"`
 	Timestamp  string           `json:"timestamp"`
 	Signature  string           `json:"signature"`
+	Version    int              `json:"version"`
 	Options    *AnnounceOptions `json:"options,omitempty"`
 }
 
@@ -206,6 +207,7 @@ func (a *Announcer) doPut(payload AnnouncePayload, now time.Time) (*http.Respons
 	}
 
 	payload.PubKey = base64.StdEncoding.EncodeToString(derPubKey)
+	payload.Version = 1
 
 	// Add timestamp to payload
 	textTimestamp, err := now.MarshalText()
