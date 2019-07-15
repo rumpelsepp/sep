@@ -7,19 +7,12 @@ import (
 	"time"
 )
 
-const (
-	RelayFlagEnabled = 1 << iota
-	RelayFlagAcceptFromRelay
-	RelayFlagRelayOnly
-)
-
 type Config struct {
-	TLSConfig     *tls.Config
-	ResolveFlags  int
-	AllowedPeers  []Peer
-	TCPFastOpen   bool
-	TLSFalseStart bool
-	TLSBackend    string
+	TLSConfig    *tls.Config
+	ResolveFlags int
+	AllowedPeers []*Fingerprint
+	TCPFastOpen  bool
+	Database     TrustDatabase
 }
 
 type Conn interface {

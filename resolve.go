@@ -114,10 +114,10 @@ func dnsLookupHost(host string) ([]string, error) {
 
 func (r *Resolver) Resolve(node string) ([]string, error) {
 	// These schemes are tried in this order:
-	//  - MND     : Search in local network with MND protocol
-	//  - ni-URI  : Check TXT records
-	//  - ni-URI  : Check A and AAAA records, use default port
-	//  - hostname: nothing special here
+	//  - MND (default off) : Search in local network with MND protocol
+	//  - ni-URI            : Check TXT records
+	//  - ni-URI            : Check A and AAAA records, use default port
+	//  - hostname          : nothing special here
 
 	if fingerprint, err := ParseFingerprint(node); err == nil {
 		if (r.Flags&ResolveFlagUseMND) != 0 && r.MNDResolver != nil {
@@ -194,11 +194,11 @@ func httpsLookup(fingerprint *Fingerprint) ([]string, error) {
 		return nil, err
 	}
 
-	if payload.Version != 1 {
+	if payload.Version != 0 {
 		return nil, fmt.Errorf("unsupported api version")
 	}
 
-	ok, err := payload.checkSignature(fingerprint)
+	ok, err := payload.CheckSignature(fingerprint)
 	if err != nil {
 		return nil, err
 	}

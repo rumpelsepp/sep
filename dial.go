@@ -7,8 +7,6 @@ import (
 
 type Dialer interface {
 	DialTimeout(network, target string, timeout time.Duration) (Conn, error)
-	DialToNextHop(network, relay, target string, timeout time.Duration) (Conn, error)
-	DialWithRelay(network, relay, target string, timeout time.Duration) (Conn, error)
 }
 
 func NewDialer(transport string, config Config) (Dialer, error) {

@@ -93,11 +93,3 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 
 	return nil, fmt.Errorf("could not connect to: %s", target)
 }
-
-func (d *tcpDialer) DialToNextHop(network, relay, target string, timeout time.Duration) (Conn, error) {
-	return nil, nil
-}
-
-func (d *tcpDialer) DialWithRelay(network, relay, target string, timeout time.Duration) (Conn, error) {
-	return nil, nil
-}

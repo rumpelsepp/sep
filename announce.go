@@ -33,7 +33,6 @@ type AnnounceOptions struct {
 	WholeCert bool   `json:"wholecert"`
 }
 
-// TODO: maybe with reflect?
 type AnnouncePayload struct {
 	Addresses  []string         `json:"addresses,omitempty"`
 	Delegators []string         `json:"delegator,omitempty"`
@@ -47,30 +46,83 @@ type AnnouncePayload struct {
 	Options    *AnnounceOptions `json:"options,omitempty"`
 }
 
-func (a *AnnouncePayload) checkSignature(fingerprint *Fingerprint) (bool, error) {
-	// TODO: Currently this interface supports only one data record at a time.
-	//       It should be possible to combine them arbitrarily.
-	var data interface{}
-	switch {
-	case a.Addresses != nil:
-		data = a.Addresses
-	case a.Delegators != nil:
-		data = a.Delegators
-	case a.Relays != nil:
-		data = a.Relays
-	case a.Blob != "":
-		data = a.Blob
-	default:
-		return false, fmt.Errorf("no data to verify")
+func concat(date []string) string {
+	var res string
+	for _, subStr := range date {
+		res += subStr
+	}
+	return res
+}
+
+func (a *AnnouncePayload) digest() []byte {
+	var res string
+
+	if len(a.Addresses) > 0 {
+		res += concat(a.Addresses)
+	}
+	if len(a.Delegators) > 0 {
+		res += concat(a.Delegators)
+	}
+	if len(a.Relays) > 0 {
+		res += concat(a.Relays)
+	}
+	if a.Blob != "" {
+		res += a.Blob
 	}
 
+	res += string(a.TTL)
+	res += a.Timestamp
+	res += a.PubKey
+
+	digest := sha3.Sum256([]byte(res))
+
+	return digest[:]
+}
+
+// The signature is created over the following data;
+// | means concatenation, binary data must be converted to
+// base64 strings first.
+//
+//  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
+func (a *AnnouncePayload) Sign(privateKey crypto.PrivateKey) error {
+	var (
+		// FIXME: Do not panic!!!
+		now     = time.Now()
+		privKey = privateKey.(*ecdsa.PrivateKey)
+	)
+
+	textTimestamp, err := now.MarshalText()
+	if err != nil {
+		return err
+	}
+
+	a.Timestamp = string(textTimestamp)
+
+	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
+	if err != nil {
+		return err
+	}
+
+	a.PubKey = base64.StdEncoding.EncodeToString(derPubKey)
+
+	r, s, err := ecdsa.Sign(rand.Reader, privKey, a.digest())
+	if err != nil {
+		return err
+	}
+
+	signature, err := asn1.Marshal(ecdsaSignature{r, s})
+	if err != nil {
+		return err
+	}
+
+	a.Signature = base64.StdEncoding.EncodeToString(signature)
+
+	return nil
+}
+
+func (a *AnnouncePayload) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	var timestamp time.Time
 	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
-		return false, err
-	}
-
-	ser, err := serializeRecordSet(data, a.TTL, timestamp)
-	if err != nil {
 		return false, err
 	}
 
@@ -79,18 +131,11 @@ func (a *AnnouncePayload) checkSignature(fingerprint *Fingerprint) (bool, error)
 		return false, err
 	}
 
-	// TODO: check if remote public key is equal to the expected publickey
-	// Hash the key and compare digest with fingerprint
-
 	digest := sha3.Sum256(rawPubKey)
 
 	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
-
-	// Build data which is needed to compute the digest
-	ser += base64.StdEncoding.EncodeToString(rawPubKey)
-	digest = sha3.Sum256([]byte(ser))
 
 	rawSignature, err := base64.StdEncoding.DecodeString(a.Signature)
 	if err != nil {
@@ -111,7 +156,7 @@ func (a *AnnouncePayload) checkSignature(fingerprint *Fingerprint) (bool, error)
 	// FIXME: don't panic
 	remotePubKey := remotePK.(*ecdsa.PublicKey)
 
-	if ok := ecdsa.Verify(remotePubKey, digest[:], signature.R, signature.S); !ok {
+	if ok := ecdsa.Verify(remotePubKey, a.digest(), signature.R, signature.S); !ok {
 		return false, nil
 	}
 
@@ -138,84 +183,11 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-func serializeRecordSet(data interface{}, ttl int, timestamp time.Time) (string, error) {
-	res := ""
-
-	switch t := data.(type) {
-	case string:
-		res += t
-	case []string:
-		for _, subStr := range t {
-			res += subStr
-		}
-	default:
-		return "", fmt.Errorf("type %T is not supported in serialize", t)
-	}
-
-	res += string(ttl)
-	res += timestamp.String()
-
-	return res, nil
-}
-
-// The signature is created over the following data;
-// || means logical OR, | concatenation, binary data must be converted to
-// base64 strings first. This function appends the PublicKey.
-//
-//  SHA3-256((Addresses || Delegators || Relays || Blob) | TTL | Timestamp | PubKey)
-func signRecordSet(privateKey crypto.PrivateKey, data interface{}, ttl int, timestamp time.Time) ([]byte, error) {
-	ser, err := serializeRecordSet(data, ttl, timestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	// FIXME: Do not panic!!!
-	privKey := privateKey.(*ecdsa.PrivateKey)
-
-	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
-	if err != nil {
-		return nil, err
-	}
-
-	ser += base64.StdEncoding.EncodeToString(derPubKey)
-	digest := sha3.Sum256([]byte(ser))
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, digest[:])
-	if err != nil {
-		return nil, err
-	}
-
-	signature, err := asn1.Marshal(ecdsaSignature{r, s})
-	if err != nil {
-		return nil, err
-	}
-
-	return signature, nil
-}
-
-func (a *Announcer) doPut(payload AnnouncePayload, now time.Time) (*http.Response, error) {
+func (a *Announcer) Put(payload AnnouncePayload) (*http.Response, error) {
 	u := url.URL{}
 	u.Scheme = "https"
 	u.Host = a.mariaEndpoint
-
-	// FIXME: Do not panic!!!
-	// Add public key on this shared location.
-	privKey := a.keypair.PrivateKey.(*ecdsa.PrivateKey)
-
-	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
-	if err != nil {
-		return nil, err
-	}
-
-	payload.PubKey = base64.StdEncoding.EncodeToString(derPubKey)
-	payload.Version = 1
-
-	// Add timestamp to payload
-	textTimestamp, err := now.MarshalText()
-	if err != nil {
-		return nil, err
-	}
-
-	payload.Timestamp = string(textTimestamp)
+	payload.Version = 0
 
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -262,18 +234,15 @@ func (a *Announcer) PushAddresses(addresses []string, ttl int) (time.Duration, e
 			Options:   a.options,
 			TTL:       ttl,
 		}
-		now = time.Now()
 	)
 
 	// Sign the RecordSet
-	signature, err := signRecordSet(a.keypair.PrivateKey, addresses, ttl, now)
+	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return 0, err
 	}
 
-	payload.Signature = base64.StdEncoding.EncodeToString(signature)
-
-	resp, err := a.doPut(payload, now)
+	resp, err := a.Put(payload)
 	if err != nil {
 		return 0, err
 	}
@@ -290,7 +259,6 @@ func (a *Announcer) PushAddresses(addresses []string, ttl int) (time.Duration, e
 func (a *Announcer) PushBlob(data []byte, ttl int) (time.Duration, error) {
 	var (
 		b64Data = base64.StdEncoding.EncodeToString(data)
-		now     = time.Now()
 		payload = AnnouncePayload{
 			Blob:    b64Data,
 			TTL:     ttl,
@@ -298,15 +266,12 @@ func (a *Announcer) PushBlob(data []byte, ttl int) (time.Duration, error) {
 		}
 	)
 
-	// Sign the RecordSet
-	signature, err := signRecordSet(a.keypair.PrivateKey, data, ttl, now)
+	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return 0, err
 	}
 
-	payload.Signature = base64.StdEncoding.EncodeToString(signature)
-
-	resp, err := a.doPut(payload, now)
+	resp, err := a.Put(payload)
 	if err != nil {
 		return 0, err
 	}

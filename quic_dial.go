@@ -29,7 +29,7 @@ func (d *quicDialer) DialTimeout(network, target string, timeout time.Duration) 
 	// TODO: better location
 	tlsConfig := d.Config.TLSConfig.Clone()
 	if tlsConfig.VerifyPeerCertificate == nil {
-		tlsConfig.VerifyPeerCertificate = makeVerifyCallback(d.Config.AllowedPeers)
+		tlsConfig.VerifyPeerCertificate = makeVerifyCallback(d.Config.AllowedPeers, d.Config.Database)
 	}
 
 	addrs, err := d.Resolver.Resolve(target)

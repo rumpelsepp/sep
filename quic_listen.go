@@ -16,7 +16,7 @@ func quicListen(address string, config *Config) (*quicListener, error) {
 	tlsConfig := config.TLSConfig.Clone()
 
 	if tlsConfig.VerifyPeerCertificate == nil {
-		tlsConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers)
+		tlsConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers, config.Database)
 	}
 
 	ln, err := quic.ListenAddr(address, config.TLSConfig, nil)
@@ -31,7 +31,6 @@ func quicListen(address string, config *Config) (*quicListener, error) {
 }
 
 func (ln *quicListener) Accept() (Conn, error) {
-
 	session, err := ln.listener.Accept()
 	if err != nil {
 		return nil, err

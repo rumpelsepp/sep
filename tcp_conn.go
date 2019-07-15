@@ -21,9 +21,6 @@ type TCPConn struct {
 	localFingerprint  *Fingerprint
 	remoteFingerprint *Fingerprint
 	alp               string
-	relayTarget       string
-	relayDialer       *tcpDialer
-	relayPath         []*Fingerprint
 
 	isServer  bool
 	isSession bool
@@ -55,19 +52,8 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	tlsLogger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
 	tlsLogger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
 
-	if alp != AlpSEP && alp != AlpSEPRelay {
+	if alp != AlpSEP {
 		return nil, fmt.Errorf("unsupported ALP: %s", state.NegotiatedProtocol)
-	}
-
-	sepRelayConfig := Config{
-		TLSConfig:    config.TLSConfig.Clone(),
-		TCPFastOpen:  true,
-		AllowedPeers: config.AllowedPeers,
-	}
-
-	relayDialer, err := NewDialer("tcp", sepRelayConfig)
-	if err != nil {
-		panic("BUG: could not create relay dialer")
 	}
 
 	return &TCPConn{
@@ -76,14 +62,13 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 		config:            config,
 		localFingerprint:  localFingerprint,
 		remoteFingerprint: remoteFingerprint,
-		relayDialer:       relayDialer.(*tcpDialer),
 	}, nil
 }
 
 func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 	// TODO: Move to better location
 	if config.TLSConfig.VerifyPeerCertificate == nil {
-		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers)
+		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers, config.Database)
 	}
 
 	tlsConn := tls.Server(conn, config.TLSConfig)
@@ -106,7 +91,7 @@ func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 
 	// TODO: Move to better location
 	if config.TLSConfig.VerifyPeerCertificate == nil {
-		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers)
+		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers, config.Database)
 	}
 
 	tlsConn := tls.Client(conn, config.TLSConfig)

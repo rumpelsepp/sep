@@ -7,6 +7,8 @@ require (
 	git.sr.ht/~rumpelsepp/ni v0.0.0-20190503051256-7591effbfb31
 	git.sr.ht/~rumpelsepp/rlog v0.0.0-20190503052634-bcceaafb5c3c
 	github.com/golang/mock v1.3.0 // indirect
+	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/rpc v1.2.0
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/kr/pty v1.1.4 // indirect

@@ -42,12 +42,12 @@ var tlsCipherSuiteNames = map[uint16]string{
 
 type sepVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 
-func makeVerifyCallback(allowed []Peer) sepVerifier {
+func makeVerifyCallback(allowed []*Fingerprint, database TrustDatabase) sepVerifier {
 	allowedDigests := make([][]byte, len(allowed))
 
 	for i, peer := range allowed {
 		// TODO
-		allowedDigests[i] = peer.Fingerprint.Bytes()[1:]
+		allowedDigests[i] = peer.Bytes()[1:]
 	}
 
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -70,6 +70,15 @@ func makeVerifyCallback(allowed []Peer) sepVerifier {
 				if bytes.Equal(remoteDigest[:], allowedDigest) {
 					return nil
 				}
+			}
+
+			fingerprint, err := CertificateToFingerprint(cert, DefaultFingerprintSuite)
+			if err != nil {
+				return err
+			}
+
+			if database.IsTrusted(fingerprint) {
+				return nil
 			}
 		}
 
