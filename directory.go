@@ -536,26 +536,13 @@ func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 	if (r.Flags&ResolveFlagUseMND) != 0 && r.MNDResolver != nil {
 		addrs, err = r.MNDResolver.Request(fingerprint.URL)
 		if err == nil {
-			resolveLogger.Debugf("Got addresses %s via MND", addrs)
 			found = true
 		}
 	}
 
-	// TODO: merge with Lookup above
-	if (r.Flags&ResolveFlagUseSystemDNS) != 0 && found == false {
-		payload, err := dnsLookup(fingerprint)
+	if !found {
+		payload, err := r.Lookup(fingerprint)
 		if err == nil {
-			resolveLogger.Debugf("Got addresses %s via DNS", addrs)
-			found = true
-		}
-
-		addrs = payload.Addresses
-	}
-
-	if (r.Flags&ResolveFlagUseHTTPs) != 0 && found == false {
-		payload, err := r.DirectoryClient.Get(fingerprint)
-		if err == nil {
-			resolveLogger.Debugf("Got addresses %s via HTTP", addrs)
 			found = true
 		}
 
