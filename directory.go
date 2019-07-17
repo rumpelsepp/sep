@@ -43,6 +43,12 @@ type DirectoryPayload struct {
 	Options    *DirectoryOptions `json:"options,omitempty"`
 }
 
+type DirectoryResponse struct {
+	TTL         time.Duration
+	Fingerprint *Fingerprint
+	Location    *url.URL
+}
+
 func concat(date []string) string {
 	var res string
 	for _, subStr := range date {
@@ -273,7 +279,35 @@ func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, erro
 	return &payload, nil
 }
 
-func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (time.Duration, error) {
+func getResponse(header http.Header) (*DirectoryResponse, error) {
+	rawTTL := header.Get("reannounce-after")
+	TTL, err := time.ParseDuration(rawTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	rawLocation := header.Get("Content-Location")
+	location, err := url.Parse(rawLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	rawFingerprint := header.Get("Fingerprint")
+	fingerprint, err := ParseFingerprint(rawFingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DirectoryResponse{
+		TTL:         TTL,
+		Location:    location,
+		Fingerprint: fingerprint,
+	}
+
+	return response, nil
+}
+
+func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
 	payload := DirectoryPayload{
 		Addresses: addresses,
 		Options:   a.options,
@@ -283,24 +317,23 @@ func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (time.Durat
 	// Sign the RecordSet
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	resp, err := a.Put(payload)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	reannounce := resp.Header.Get("reannounce-after")
-	reannounceDur, err := time.ParseDuration(reannounce)
+	response, err := getResponse(resp.Header)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return reannounceDur, nil
+	return response, nil
 }
 
-func (a *DirectoryClient) PushBlob(data []byte, ttl int) (time.Duration, error) {
+func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, error) {
 	var (
 		b64Data = base64.StdEncoding.EncodeToString(data)
 		payload = DirectoryPayload{
@@ -312,21 +345,20 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (time.Duration, error) 
 
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	resp, err := a.Put(payload)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	reannounce := resp.Header.Get("reannounce-after")
-	reannounceDur, err := time.ParseDuration(reannounce)
+	response, err := getResponse(resp.Header)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return reannounceDur, nil
+	return response, nil
 }
 
 func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
