@@ -15,14 +15,15 @@ type quicDialer struct {
 
 // TODO: Add a resolver argument
 func newQuicDialer(config Config) Dialer {
-	privKey := config.TLSConfig.Certificates[0].PrivateKey
+	dirClient := NewDirectoryClient(DefaultResolveDomain, &config.TLSConfig.Certificates[0], nil)
 
 	return &quicDialer{
 		Config:   &config,
-		Resolver: NewResolver(config.ResolveFlags, privKey),
+		Resolver: NewResolver(&dirClient, 0),
 	}
 }
 
+// TODO: network argument is unused
 func (d *quicDialer) DialTimeout(network, target string, timeout time.Duration) (Conn, error) {
 	var session quic.Session
 
@@ -32,7 +33,12 @@ func (d *quicDialer) DialTimeout(network, target string, timeout time.Duration) 
 		tlsConfig.VerifyPeerCertificate = makeVerifyCallback(d.Config.AllowedPeers, d.Config.Database)
 	}
 
-	addrs, err := d.Resolver.Resolve(target)
+	fingerprint, err := ParseFingerprint(target)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs, err := d.Resolver.LookupAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}

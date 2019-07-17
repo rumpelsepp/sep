@@ -27,12 +27,12 @@ func newTCPDialer(config Config) Dialer {
 		dialer = &net.Dialer{}
 	}
 
-	privKey := config.TLSConfig.Certificates[0].PrivateKey
+	dirClient := NewDirectoryClient(DefaultResolveDomain, &config.TLSConfig.Certificates[0], nil)
 
 	return &tcpDialer{
 		dialer:   dialer,
 		Config:   &config,
-		Resolver: NewResolver(config.ResolveFlags, privKey),
+		Resolver: NewResolver(&dirClient, 0),
 	}
 }
 
@@ -42,7 +42,12 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	d.Config.TLSConfig.NextProtos = []string{AlpSEP}
 	d.dialer.Timeout = timeout
 
-	addrs, err := d.Resolver.Resolve(target)
+	fingerprint, err := ParseFingerprint(target)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs, err := d.Resolver.LookupAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}
