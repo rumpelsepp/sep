@@ -11,7 +11,7 @@ import (
 type tcpDialer struct {
 	dialer   *net.Dialer
 	Config   *Config
-	Resolver Resolver
+	resolver Resolver
 	visited  []string
 }
 
@@ -32,7 +32,7 @@ func newTCPDialer(config Config) Dialer {
 	return &tcpDialer{
 		dialer:   dialer,
 		Config:   &config,
-		Resolver: NewResolver(&dirClient, 0),
+		resolver: NewResolver(&dirClient, ResolveFlagUseHTTPs),
 	}
 }
 
@@ -47,7 +47,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		return nil, err
 	}
 
-	addrs, err := d.Resolver.LookupAddresses(fingerprint)
+	addrs, err := d.resolver.LookupAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -97,4 +97,8 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	}
 
 	return nil, fmt.Errorf("could not connect to: %s", target)
+}
+
+func (d *tcpDialer) Resolver() *Resolver {
+	return &d.resolver
 }

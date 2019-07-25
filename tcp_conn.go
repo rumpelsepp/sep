@@ -47,14 +47,9 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 
 	tlsLogger.Debugf("%+v", state)
 	tlsLogger.Debugf("connected to: %s", conn.RemoteAddr())
-	tlsLogger.Debugf("ALPN: %s", state.NegotiatedProtocol)
 	tlsLogger.Debugf("local fingerprint : %s", localFingerprint.String())
 	tlsLogger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
 	tlsLogger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
-
-	if alp != AlpSEP {
-		return nil, fmt.Errorf("unsupported ALP: %s", state.NegotiatedProtocol)
-	}
 
 	return &TCPConn{
 		tlsConn:           conn,
@@ -85,9 +80,7 @@ func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 }
 
 func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
-	if config.TLSConfig.NextProtos == nil {
-		return nil, fmt.Errorf("NextProtos is not set")
-	}
+	config.TLSConfig.InsecureSkipVerify = true
 
 	// TODO: Move to better location
 	if config.TLSConfig.VerifyPeerCertificate == nil {
