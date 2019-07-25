@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"sync"
 	"time"
 
@@ -135,4 +136,32 @@ func GenKeypair() (tls.Certificate, error) {
 	}
 
 	return keypair, nil
+}
+
+func GatherAllAddresses() ([]string, error) {
+	addrs := []string{}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, intf := range interfaces {
+		addresses, err := intf.Addrs()
+		if err != nil {
+			rlog.Warning(err)
+			continue
+		}
+
+		for _, addr := range addresses {
+			if n, ok := addr.(*net.IPNet); ok {
+				if n.IP.IsGlobalUnicast() {
+					addrStr := net.JoinHostPort(n.IP.String(), DefaultPort)
+					addrs = append(addrs, "tcp://"+addrStr)
+				}
+			}
+		}
+	}
+
+	return addrs, nil
 }
