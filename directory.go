@@ -544,9 +544,8 @@ func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 		payload, err := r.Lookup(fingerprint)
 		if err == nil {
 			found = true
+			addrs = payload.Addresses[:]
 		}
-
-		addrs = payload.Addresses
 	}
 
 	if found {
