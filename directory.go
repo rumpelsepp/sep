@@ -555,3 +555,12 @@ func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 
 	return nil, fmt.Errorf("fingerprint %s not present", fingerprint.String())
 }
+
+func (r *Resolver) LookupDelegators(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := r.Lookup(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Delegators, nil
+}
