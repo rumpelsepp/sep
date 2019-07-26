@@ -32,7 +32,7 @@ func DefaultTLSConfig(cert tls.Certificate) *tls.Config {
 		SessionTicketsDisabled:      true,  // We don't want this.
 		InsecureSkipVerify:          false, // Disable this explicitely!!
 		DynamicRecordSizingDisabled: false,
-		MinVersion:                  tls.VersionTLS13,
+		MinVersion:                  tls.VersionTLS12,
 		KeyLogWriter:                keyLogWriter,
 	}
 }
