@@ -1,7 +1,6 @@
 package sep
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
@@ -17,7 +16,7 @@ type Fingerprint struct {
 }
 
 func FingerprintEqual(a, b *Fingerprint) bool {
-	return bytes.Equal(a.Bytes(), b.Bytes())
+	return a.String() == b.String()
 }
 
 func checkDigest(digest string) error {
