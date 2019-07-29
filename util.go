@@ -138,7 +138,11 @@ func GenKeypair() (tls.Certificate, error) {
 	return keypair, nil
 }
 
-func GatherAllAddresses() ([]string, error) {
+// GatherAllAddresses gathers the IP addresses of all local interfaces
+func GatherAllAddresses(port string) ([]string, error) {
+	if port != "" {
+		port = DefaultPort
+	}
 	addrs := []string{}
 
 	interfaces, err := net.Interfaces()
@@ -156,7 +160,7 @@ func GatherAllAddresses() ([]string, error) {
 		for _, addr := range addresses {
 			if n, ok := addr.(*net.IPNet); ok {
 				if n.IP.IsGlobalUnicast() {
-					addrStr := net.JoinHostPort(n.IP.String(), DefaultPort)
+					addrStr := net.JoinHostPort(n.IP.String(), port)
 					addrs = append(addrs, "tcp://"+addrStr)
 				}
 			}
