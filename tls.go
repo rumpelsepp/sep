@@ -77,8 +77,10 @@ func makeVerifyCallback(allowed []*Fingerprint, database TrustDatabase) sepVerif
 				return err
 			}
 
-			if database.IsTrusted(fingerprint) {
-				return nil
+			if database != nil {
+				if database.IsTrusted(fingerprint) {
+					return nil
+				}
 			}
 		}
 
