@@ -1,6 +1,7 @@
 package sep
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
@@ -13,10 +14,6 @@ import (
 
 type Fingerprint struct {
 	*ni.URL
-}
-
-func FingerprintEqual(a, b *Fingerprint) bool {
-	return a.String() == b.String()
 }
 
 func checkDigest(digest string) error {
@@ -32,28 +29,6 @@ func checkDigest(digest string) error {
 
 }
 
-func ParseFingerprint(rawFingerprint string) (*Fingerprint, error) {
-	// TODO: ni.Parse
-	niURL, err := ni.ParseNI(rawFingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkDigest(niURL.Alg); err != nil {
-		return nil, err
-	}
-
-	return &Fingerprint{niURL}, nil
-}
-
-func FingerprintFromRawNI(niURL *ni.URL) (*Fingerprint, error) {
-	if err := checkDigest(niURL.Alg); err != nil {
-		return nil, err
-	}
-
-	return &Fingerprint{niURL}, nil
-}
-
 func reverseBytes(b []byte) []byte {
 	r := make([]byte, len(b))
 	for i := 0; i < len(b); i++ {
@@ -63,45 +38,21 @@ func reverseBytes(b []byte) []byte {
 	return r
 }
 
-func (fp *Fingerprint) FQDN() string {
-	var (
-		fqdn       strings.Builder
-		bin        = fp.Bytes()
-		suiteID    = bin[0]
-		digest     = bin[1:]
-		labelBytes = 16
-		fullLabels = len(digest) / labelBytes
-	)
-
-	digest = reverseBytes(digest)
-
-	for i := 0; i < fullLabels; i++ {
-		s := fmt.Sprintf("%x", digest[i*labelBytes:((i+1)*labelBytes)])
-		fqdn.WriteString(s)
-		fqdn.WriteString(".")
-	}
-
-	if len(digest) > fullLabels*labelBytes {
-		s := fmt.Sprintf("%x", digest[fullLabels*labelBytes:])
-		fqdn.WriteString(s)
-		fqdn.WriteString(".")
-	}
-
-	fqdn.WriteString(fmt.Sprintf("%02x", suiteID))
-	fqdn.WriteString(".")
-	fqdn.WriteString(fp.URL.Authority)
-
-	return fqdn.String()
+// FingerprintIsEqual checks whether two fingerprints are identical.
+// The check is based on the hash of the public key and the used algorithm.
+// This means two fingerprints based on the same public key but with different
+// domains are considered identical.
+// Different NI strings can also be identical due to Base64 encoding.
+func FingerprintIsEqual(a, b *Fingerprint) bool {
+	return bytes.Equal(a.Bytes(), b.Bytes())
 }
 
-func (fp *Fingerprint) WellKnownURI() string {
-	// The RFC specifies an HTTP scheme (without s). ni-go implements the RFC
-	// but in SEP we explicitely rely on HTTPS (with s). So this has to stay
-	// here rather than in ni-go.
-	return strings.Replace(fp.URL.WellKnownURI(), "http://", "https://", 1)
-}
-
-func CertificateToFingerprint(cert []byte, suite string) (*Fingerprint, error) {
+// FingerprintFromCertificate transforms a TLS certificate to a fingerprint.
+// This is done by hashing the public key with the specified suite.
+// These suites are supported:
+// 		sha-256, sha-384 ,sha-512 ,sha3-224 ,sha3-256 ,sha3-384 ,sha3-512
+func FingerprintFromCertificate(cert []byte, suite string) (*Fingerprint, error) {
+	// TODO: Change DefaultResolveDomain
 	parsedCert, err := x509.ParseCertificate(cert)
 	if err != nil {
 		return nil, err
@@ -147,4 +98,72 @@ func CertificateToFingerprint(cert []byte, suite string) (*Fingerprint, error) {
 	}
 
 	return FingerprintFromRawNI(niURL)
+}
+
+// FingerprintFromNIString parses an NI string to type fingerprint.
+func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
+	// TODO: ni.Parse
+	niURL, err := ni.ParseNI(rawFingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := checkDigest(niURL.Alg); err != nil {
+		return nil, err
+	}
+
+	return &Fingerprint{niURL}, nil
+}
+
+// FingerprintFromRawNI transforms an NI URL to type fingerprint.
+func FingerprintFromRawNI(niURL *ni.URL) (*Fingerprint, error) {
+	if err := checkDigest(niURL.Alg); err != nil {
+		return nil, err
+	}
+
+	return &Fingerprint{niURL}, nil
+}
+
+// FQDN returns the Fully Qualified Domain Name representation of a fingerprint.
+// For this purpose the byte representation of the fingerprint is reversed and
+// prepended to the authority.
+func (fp *Fingerprint) FQDN() string {
+	var (
+		fqdn       strings.Builder
+		bin        = fp.Bytes()
+		suiteID    = bin[0]
+		digest     = bin[1:]
+		labelBytes = 16
+		fullLabels = len(digest) / labelBytes
+	)
+
+	digest = reverseBytes(digest)
+
+	for i := 0; i < fullLabels; i++ {
+		s := fmt.Sprintf("%x", digest[i*labelBytes:((i+1)*labelBytes)])
+		fqdn.WriteString(s)
+		fqdn.WriteString(".")
+	}
+
+	if len(digest) > fullLabels*labelBytes {
+		s := fmt.Sprintf("%x", digest[fullLabels*labelBytes:])
+		fqdn.WriteString(s)
+		fqdn.WriteString(".")
+	}
+
+	fqdn.WriteString(fmt.Sprintf("%02x", suiteID))
+	fqdn.WriteString(".")
+	fqdn.WriteString(fp.URL.Authority)
+
+	return fqdn.String()
+}
+
+// WellKnownURI returns the WellKnown representation of a fingerprint.
+// This translates to the representation given in RCF6920, Section 4, with
+// the addition that https is used instead of http.
+func (fp *Fingerprint) WellKnownURI() string {
+	// The RFC specifies an HTTP scheme (without s). ni-go implements the RFC
+	// but in SEP we explicitely rely on HTTPS (with s). So this has to stay
+	// here rather than in ni-go.
+	return strings.Replace(fp.URL.WellKnownURI(), "http://", "https://", 1)
 }

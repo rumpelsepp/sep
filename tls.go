@@ -72,7 +72,7 @@ func makeVerifyCallback(allowed []*Fingerprint, database TrustDatabase) sepVerif
 				}
 			}
 
-			fingerprint, err := CertificateToFingerprint(cert, DefaultFingerprintSuite)
+			fingerprint, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite)
 			if err != nil {
 				return err
 			}

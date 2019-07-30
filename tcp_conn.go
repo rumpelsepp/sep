@@ -35,12 +35,12 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	state := conn.ConnectionState()
 	alp := state.NegotiatedProtocol
 
-	localFingerprint, err := CertificateToFingerprint(config.TLSConfig.Certificates[0].Certificate[0], DefaultFingerprintSuite)
+	localFingerprint, err := FingerprintFromCertificate(config.TLSConfig.Certificates[0].Certificate[0], DefaultFingerprintSuite)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteFingerprint, err := CertificateToFingerprint(state.PeerCertificates[0].Raw, DefaultFingerprintSuite)
+	remoteFingerprint, err := FingerprintFromCertificate(state.PeerCertificates[0].Raw, DefaultFingerprintSuite)
 	if err != nil {
 		return nil, err
 	}

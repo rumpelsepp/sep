@@ -42,7 +42,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	d.Config.TLSConfig.NextProtos = []string{AlpSEP}
 	d.dialer.Timeout = timeout
 
-	fingerprint, err := ParseFingerprint(target)
+	fingerprint, err := FingerprintFromNIString(target)
 	if err != nil {
 		return nil, err
 	}

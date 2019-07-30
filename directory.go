@@ -293,7 +293,7 @@ func getResponse(header http.Header) (*DirectoryResponse, error) {
 	}
 
 	rawFingerprint := header.Get("Fingerprint")
-	fingerprint, err := ParseFingerprint(rawFingerprint)
+	fingerprint, err := FingerprintFromNIString(rawFingerprint)
 	if err != nil {
 		return nil, err
 	}
