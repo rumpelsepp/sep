@@ -51,8 +51,7 @@ func FingerprintIsEqual(a, b *Fingerprint) bool {
 // This is done by hashing the public key with the specified suite.
 // These suites are supported:
 // 		sha-256, sha-384 ,sha-512 ,sha3-224 ,sha3-256 ,sha3-384 ,sha3-512
-func FingerprintFromCertificate(cert []byte, suite string) (*Fingerprint, error) {
-	// TODO: Change DefaultResolveDomain
+func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fingerprint, error) {
 	parsedCert, err := x509.ParseCertificate(cert)
 	if err != nil {
 		return nil, err
@@ -91,8 +90,11 @@ func FingerprintFromCertificate(cert []byte, suite string) (*Fingerprint, error)
 		return nil, ni.ErrSuiteNotSupported
 	}
 
-	// TODO: resolve domain comes from cert
-	niURL, err := ni.DigestToNI(digest[:], suite, DefaultResolveDomain)
+	if domain == "" {
+		domain = DefaultResolveDomain
+	}
+
+	niURL, err := ni.DigestToNI(digest[:], suite, domain)
 	if err != nil {
 		return nil, err
 	}
