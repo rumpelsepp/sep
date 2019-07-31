@@ -17,7 +17,6 @@ func tcpListen(network, address string, config *Config) (*tcpListener, error) {
 	)
 
 	switch network {
-
 	case "tcp", "tcp4", "tcp6":
 		if config.TCPFastOpen {
 			lc := net.ListenConfig{
@@ -58,12 +57,4 @@ func (ln *tcpListener) Accept() (Conn, error) {
 	}
 
 	return tunnel, nil
-}
-
-func (ln *tcpListener) AcceptRelay() (*RelayConn, error) {
-	return nil, nil
-}
-
-func (ln *tcpListener) AcceptAndServeRelay() (Conn, error) {
-	return nil, nil
 }

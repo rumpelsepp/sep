@@ -40,9 +40,13 @@ var tlsCipherSuiteNames = map[uint16]string{
 	0xcca9: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
 }
 
-type sepVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+type SepVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 
-func makeVerifyCallback(allowed []*Fingerprint, database TrustDatabase) sepVerifier {
+func VerifierAllowAll(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	return nil
+}
+
+func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SepVerifier {
 	allowedDigests := make([][]byte, len(allowed))
 
 	for i, peer := range allowed {

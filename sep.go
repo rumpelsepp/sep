@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"net"
 	"os"
+
+	"git.sr.ht/~rumpelsepp/rlog"
 )
 
 const (
@@ -19,6 +21,12 @@ var (
 	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 )
+
+var logger = rlog.NewLogger()
+
+func init() {
+	logger.SetModule("[sep]")
+}
 
 // NewDefaultTLSConfig returns type tls.Config with default settings utilized in
 // SEP. This means TLS1.2 is required at minimum, client certificates are

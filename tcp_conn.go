@@ -27,6 +27,10 @@ type TCPConn struct {
 }
 
 func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
+	if config.TLSConfig.VerifyPeerCertificate == nil {
+		config.TLSConfig.VerifyPeerCertificate = MakeDefaultVerifier(config.AllowedPeers, config.Database)
+	}
+
 	err := conn.Handshake()
 	if err != nil {
 		return nil, fmt.Errorf("tls handshake: %s", err)
@@ -45,11 +49,11 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 		return nil, err
 	}
 
-	tlsLogger.Debugf("%+v", state)
-	tlsLogger.Debugf("connected to: %s", conn.RemoteAddr())
-	tlsLogger.Debugf("local fingerprint : %s", localFingerprint.String())
-	tlsLogger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
-	tlsLogger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
+	logger.Debugf("%+v", state)
+	logger.Debugf("connected to: %s", conn.RemoteAddr())
+	logger.Debugf("local fingerprint : %s", localFingerprint.String())
+	logger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
+	logger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
 
 	return &TCPConn{
 		tlsConn:           conn,
@@ -61,11 +65,6 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 }
 
 func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
-	// TODO: Move to better location
-	if config.TLSConfig.VerifyPeerCertificate == nil {
-		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers, config.Database)
-	}
-
 	tlsConn := tls.Server(conn, config.TLSConfig)
 	sepConn, err := initSEP(tlsConn, config)
 	if err != nil {
@@ -80,12 +79,8 @@ func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 }
 
 func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
+	// We do verifying ourselves.
 	config.TLSConfig.InsecureSkipVerify = true
-
-	// TODO: Move to better location
-	if config.TLSConfig.VerifyPeerCertificate == nil {
-		config.TLSConfig.VerifyPeerCertificate = makeVerifyCallback(config.AllowedPeers, config.Database)
-	}
 
 	tlsConn := tls.Client(conn, config.TLSConfig)
 	sepConn, err := initSEP(tlsConn, config)
@@ -98,6 +93,10 @@ func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 	sepConn.network = "tcp"
 
 	return sepConn, nil
+}
+
+func (c *TCPConn) RawConnection() net.Conn {
+	return c.transport
 }
 
 func (c *TCPConn) Read(b []byte) (int, error) {
@@ -173,7 +172,7 @@ func (m *sepMuxer) OpenStream() (Stream, error) {
 }
 
 func (c *TCPConn) initMuxer() error {
-	muxLogger.Debugln("initializing multiplexer...")
+	logger.Debugln("initializing multiplexer...")
 
 	var (
 		err   error
@@ -210,14 +209,14 @@ func (c *TCPConn) AcceptStream() (Stream, error) {
 		c.initMuxer()
 	}
 
-	muxLogger.Debugln("accepting stream...")
+	logger.Debugln("accepting stream...")
 
 	stream, err := c.multiplexer.AcceptStream()
 	if err != nil {
 		return nil, err
 	}
 
-	muxLogger.Debugf("got stream: %+v", stream)
+	logger.Debugf("got stream: %+v", stream)
 
 	return stream, nil
 }
@@ -227,14 +226,14 @@ func (c *TCPConn) OpenStream() (Stream, error) {
 		c.initMuxer()
 	}
 
-	muxLogger.Debugln("opening stream...")
+	logger.Debugln("opening stream...")
 
 	stream, err := c.multiplexer.OpenStream()
 	if err != nil {
 		return nil, err
 	}
 
-	muxLogger.Debugf("got stream: %+v", stream)
+	logger.Debugf("got stream: %+v", stream)
 
 	return stream, nil
 }

@@ -55,7 +55,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	for _, addr := range addrs {
 		parsedAddr, err := url.Parse(addr)
 		if err != nil {
-			dialLogger.Debugln(err)
+			logger.Debugln(err)
 			continue
 		}
 
@@ -65,13 +65,13 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		}
 
 		if !strings.Contains(network, "tcp") {
-			dialLogger.Debugf("wrong network: %s", network)
+			logger.Debugf("wrong network: %s", network)
 			continue
 		}
 
 		tcpConnIntf, err := d.dialer.Dial(network, parsedAddr.Host)
 		if err != nil {
-			dialLogger.Debugln(err)
+			logger.Debugln(err)
 			continue
 		}
 
@@ -86,12 +86,12 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 			// we must clean the connection in order to avoid a nil
 			// pointer dereference.
 			c = nil
-			dialLogger.Debugln(err)
+			logger.Debugln(err)
 			continue
 		}
 
 		// When the loop reaches this point, there is a connection.
-		dialLogger.Debugf("established SEP connection to: %s", c.RemoteAddr())
+		logger.Debugf("established SEP connection to: %s", c.RemoteAddr())
 
 		return c, nil
 	}

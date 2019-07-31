@@ -17,6 +17,7 @@ type Config struct {
 
 type Conn interface {
 	net.Conn
+	RawConnection() net.Conn
 	RemoteFingerprint() *Fingerprint
 	LocalFingerprint() *Fingerprint
 	AcceptStream() (Stream, error)

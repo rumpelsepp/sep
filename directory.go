@@ -250,8 +250,8 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 		return nil, err
 	}
 
-	announceLogger.Debugf("PUT request to: %s", u.String())
-	announceLogger.Debugf("JSON payload: %s", b)
+	logger.Debugf("PUT request to: %s", u.String())
+	logger.Debugf("JSON payload: %s", b)
 
 	reader := bytes.NewReader(b)
 	req, err := http.NewRequest("PUT", u.String(), reader)
@@ -271,13 +271,13 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 		// Read it if available and log it.
 		defer resp.Body.Close()
 		if body, err := ioutil.ReadAll(resp.Body); err != nil {
-			announceLogger.Warningln(string(body))
+			logger.Warningln(string(body))
 		}
 
 		return nil, fmt.Errorf("Status Code %d", resp.StatusCode)
 	}
 
-	announceLogger.Debugf("answer: %+v", resp)
+	logger.Debugf("answer: %+v", resp)
 
 	response, err := parseDirectoryResponse(resp.Header)
 	if err != nil {
@@ -362,7 +362,7 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 	for _, txt := range txts {
 		parts := strings.SplitN(txt, "=", 2)
 		if len(parts) != 2 {
-			resolveLogger.Warningf("%s entry is corrupt", txt)
+			logger.Warningf("%s entry is corrupt", txt)
 			continue
 		}
 
@@ -370,7 +370,7 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 		case "address":
 			parsedURL, err := url.Parse(parts[1])
 			if err != nil {
-				resolveLogger.Warningf("%s: %s", txt, err)
+				logger.Warningf("%s: %s", txt, err)
 				continue
 			}
 
@@ -552,7 +552,7 @@ func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	for _, txt := range txts {
 		parts := strings.SplitN(txt, "=", 2)
 		if len(parts) != 2 {
-			resolveLogger.Warningf("%s entry is corrupt", txt)
+			logger.Warningf("%s entry is corrupt", txt)
 			continue
 		}
 
@@ -560,7 +560,7 @@ func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 		case "address":
 			parsedURL, err := url.Parse(parts[1])
 			if err != nil {
-				resolveLogger.Warningf("%s: %s", txt, err)
+				logger.Warningf("%s: %s", txt, err)
 				continue
 			}
 
