@@ -49,6 +49,10 @@ type DirectoryResponse struct {
 	Location    *url.URL
 }
 
+type ecdsaSignature struct {
+	R, S *big.Int
+}
+
 func concat(date []string) string {
 	var res string
 	for _, subStr := range date {
@@ -194,10 +198,6 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 		httpClient: client,
 		options:    options,
 	}
-}
-
-type ecdsaSignature struct {
-	R, S *big.Int
 }
 
 func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) {
