@@ -354,7 +354,8 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse
 	return a.Announce(payload)
 }
 
-func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
+// DiscoverBlob is a helper function that wraps the more generic Discover()
+func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
 	payload, err := a.DiscoverHTTP(fingerprint)
 	if err != nil {
 		return nil, err
