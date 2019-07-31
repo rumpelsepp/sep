@@ -9,6 +9,7 @@ import (
 const (
 	DefaultPort             = "33000"
 	DefaultFingerprintSuite = "sha3-256"
+	DefaultResolveDomain    = "ace-sep.de"
 	AlpSEP                  = "SEP/0"
 	AlpSEPRelay             = "SEP-RELAY/0"
 )

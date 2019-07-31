@@ -379,10 +379,6 @@ func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
 	return blob, nil
 }
 
-var (
-	DefaultResolveDomain = "ace-sep.de"
-)
-
 const (
 	ResolveFlagUseSystemDNS = 1 << iota
 	ResolveFlagUseHTTPs
