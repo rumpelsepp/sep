@@ -3,17 +3,30 @@ package sep
 import (
 	"crypto/tls"
 	"io"
+	"net"
 	"os"
 )
 
 const (
 	DefaultPort             = "33000"
 	DefaultFingerprintSuite = "sha3-256"
+	DefaultResolveDomain    = "ace-sep.de"
 	AlpSEP                  = "SEP/0"
 	AlpSEPRelay             = "SEP-RELAY/0"
 )
 
-func DefaultTLSConfig(cert tls.Certificate) *tls.Config {
+var (
+	MNDIPv4MulticastAddress = net.ParseIP("224.0.0.251")
+	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
+	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
+)
+
+// NewDefaultTLSConfig returns type tls.Config with default settings utilized in
+// SEP. This means TLS1.2 is required at minimum, client certificates are
+// mandatory, session tickets are disabled, certificate checks are enforced,
+// dynamic record sizing is disabled and environmental variable `SSLKEYLOGFILE`
+// is respected.
+func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 	var (
 		err          error
 		keyLogWriter io.Writer

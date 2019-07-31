@@ -177,7 +177,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	client := &http.Client{
 		Transport: &http.Transport{
 			DisableCompression: true,
-			TLSClientConfig:    DefaultTLSConfig(*keypair),
+			TLSClientConfig:    NewDefaultTLSConfig(*keypair),
 		},
 	}
 
@@ -378,10 +378,6 @@ func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
 
 	return blob, nil
 }
-
-var (
-	DefaultResolveDomain = "ace-sep.de"
-)
 
 const (
 	ResolveFlagUseSystemDNS = 1 << iota
