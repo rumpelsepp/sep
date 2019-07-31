@@ -229,8 +229,14 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	}
 }
 
-// Put sends a json-encoded record set to the directory via HTTP PUT.
+// Put signs the record set and sends it to the directory via a json-encoded
+// HTTP PUT request.
 func (a *DirectoryClient) Put(payload DirectoryRecordSet) (*http.Response, error) {
+	err := payload.Sign(a.keypair.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
 	u := url.URL{}
 	u.Scheme = "https"
 	u.Host = a.endpoint
@@ -325,12 +331,6 @@ func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*Directory
 		TTL:       ttl,
 	}
 
-	// Sign the RecordSet
-	err := payload.Sign(a.keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
 	resp, err := a.Put(payload)
 	if err != nil {
 		return nil, err
@@ -353,11 +353,6 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, er
 			Options: a.options,
 		}
 	)
-
-	err := payload.Sign(a.keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
 
 	resp, err := a.Put(payload)
 	if err != nil {
