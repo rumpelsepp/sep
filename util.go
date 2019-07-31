@@ -143,7 +143,9 @@ func GenKeypair() (tls.Certificate, error) {
 	return keypair, nil
 }
 
-// GatherAllAddresses gathers the IP addresses of all local interfaces
+// GatherAllAddresses gathers the IP addresses of all local interfaces and
+// appends the specified port. If no port is provided (""), the default port is
+// appended.
 func GatherAllAddresses(port string) ([]string, error) {
 	if port == "" {
 		port = DefaultPort

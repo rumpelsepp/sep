@@ -30,7 +30,7 @@ type DirectoryOptions struct {
 	WholeCert bool   `json:"wholecert"`
 }
 
-type DirectoryPayload struct {
+type DirectoryRecordSet struct {
 	Addresses  []string          `json:"addresses,omitempty"`
 	Delegators []string          `json:"delegator,omitempty"`
 	Relays     []string          `json:"relay,omitempty"`
@@ -43,10 +43,8 @@ type DirectoryPayload struct {
 	Options    *DirectoryOptions `json:"options,omitempty"`
 }
 
-type DirectoryResponse struct {
-	TTL         time.Duration
-	Fingerprint *Fingerprint
-	Location    *url.URL
+type ecdsaSignature struct {
+	R, S *big.Int
 }
 
 func concat(date []string) string {
@@ -57,7 +55,7 @@ func concat(date []string) string {
 	return res
 }
 
-func (a *DirectoryPayload) digest() []byte {
+func (a *DirectoryRecordSet) digest() []byte {
 	var res string
 
 	if len(a.Addresses) > 0 {
@@ -82,12 +80,12 @@ func (a *DirectoryPayload) digest() []byte {
 	return digest[:]
 }
 
-// The signature is created over the following data;
-// | means concatenation, binary data must be converted to
-// base64 strings first.
+// Sign appends a base64-encoded signature, current timestamp and public key to
+// the DirectoryPayload. The signature consists of the following data; | means
+// concatenation, binary data must be converted to base64 strings first.
 //
 //  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
-func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
+func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 	var (
 		// FIXME: Do not panic!!!
 		now     = time.Now()
@@ -123,7 +121,10 @@ func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
 	return nil
 }
 
-func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error) {
+// CheckSignature verifies the integrity and authenticity of a DirectoryPayload
+// by validating the signature of the payload and checking whether the key used
+// for signing matches the given fingerprint.
+func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	var timestamp time.Time
 	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
 		return false, err
@@ -134,8 +135,8 @@ func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error
 		return false, err
 	}
 
+	// Verify hash of public key against fingerprint
 	digest := sha3.Sum256(rawPubKey)
-
 	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
@@ -170,13 +171,50 @@ func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error
 	return true, nil
 }
 
-type DirectoryClient struct {
-	endpoint   string
-	httpClient *http.Client
-	keypair    *tls.Certificate
-	options    *DirectoryOptions
+type DirectoryResponse struct {
+	Fingerprint *Fingerprint
+	Location    *url.URL
 }
 
+func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
+	rawLocation := header.Get("Content-Location")
+	location, err := url.Parse(rawLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	rawFingerprint := header.Get("Fingerprint")
+	fingerprint, err := FingerprintFromNIString(rawFingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DirectoryResponse{
+		Location:    location,
+		Fingerprint: fingerprint,
+	}
+
+	return response, nil
+}
+
+type DirectoryClient struct {
+	endpoint      string
+	httpClient    *http.Client
+	keypair       *tls.Certificate
+	options       *DirectoryOptions
+	DiscoverFlags int
+	// We need this for MND Discovery
+	// MNDDiscover   *mnd.Node
+}
+
+const (
+	DiscoverFlagUseSystemDNS = 1 << iota
+	DiscoverFlagUseHTTPs
+	DiscoverFlagUseMND
+)
+
+// NewDirectoryClient creates a new type DirectoryClient with default settings
+// TODO Add more details about those defaults, e.g. DiscoverFlags
 func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -186,18 +224,22 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	}
 
 	return DirectoryClient{
-		endpoint:   addr,
-		keypair:    keypair,
-		httpClient: client,
-		options:    options,
+		endpoint:      addr,
+		keypair:       keypair,
+		httpClient:    client,
+		options:       options,
+		DiscoverFlags: DiscoverFlagUseHTTPs,
 	}
 }
 
-type ecdsaSignature struct {
-	R, S *big.Int
-}
+// Announce signs the record set and sends it to the directory in a json-encoded
+// HTTP PUT request.
+func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryResponse, error) {
+	err := payload.Sign(a.keypair.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
 
-func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) {
 	u := url.URL{}
 	u.Scheme = "https"
 	u.Host = a.endpoint
@@ -237,199 +279,80 @@ func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) 
 
 	announceLogger.Debugf("answer: %+v", resp)
 
-	return resp, nil
-}
-
-func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, error) {
-	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
+	response, err := parseDirectoryResponse(resp.Header)
 	if err != nil {
 		return nil, err
-	}
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
-	}
-
-	rawData, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	var payload DirectoryPayload
-	err = json.Unmarshal(rawData, &payload)
-	if err != nil {
-		return nil, err
-	}
-
-	if payload.Version != 0 {
-		return nil, fmt.Errorf("unsupported api version")
-	}
-
-	ok, err := payload.CheckSignature(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return &payload, nil
-}
-
-func getResponse(header http.Header) (*DirectoryResponse, error) {
-	rawTTL := header.Get("reannounce-after")
-	TTL, err := time.ParseDuration(rawTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	rawLocation := header.Get("Content-Location")
-	location, err := url.Parse(rawLocation)
-	if err != nil {
-		return nil, err
-	}
-
-	rawFingerprint := header.Get("Fingerprint")
-	fingerprint, err := FingerprintFromNIString(rawFingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DirectoryResponse{
-		TTL:         TTL,
-		Location:    location,
-		Fingerprint: fingerprint,
 	}
 
 	return response, nil
 }
 
-func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
-	payload := DirectoryPayload{
+// AnnounceAddresses is a helper function that wraps the more generic Announce()
+func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
+	payload := DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
 		TTL:       ttl,
 	}
 
-	// Sign the RecordSet
-	err := payload.Sign(a.keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := a.Put(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := getResponse(resp.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return a.Announce(payload)
 }
 
-func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, error) {
+// AnnounceBlob is a helper function that wraps the more generic Announce()
+func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse, error) {
 	var (
 		b64Data = base64.StdEncoding.EncodeToString(data)
-		payload = DirectoryPayload{
+		payload = DirectoryRecordSet{
 			Blob:    b64Data,
 			TTL:     ttl,
 			Options: a.options,
 		}
 	)
 
-	err := payload.Sign(a.keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := a.Put(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := getResponse(resp.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return a.Announce(payload)
 }
 
-func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
-	payload, err := a.Get(fingerprint)
-	if err != nil {
-		return nil, err
+// Discover serves universal function call for discovering the record set of a
+// fingerprint. Depending on the DiscoverFlags set different schemes are tried,
+// but always in this order:
+//  - MND     : Discover in local network with MND protocol
+//  - ni-URI  : Discover via DNS TXT records and validate signature
+//  - HTTP    : Discover via HTTP GET and validate signature
+func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	if a.DiscoverFlags == 0 {
+		return nil, fmt.Errorf("no DiscoverFlags present")
 	}
 
-	if payload.Blob == "" {
-		return nil, fmt.Errorf("no blob available for: %s", fingerprint.String())
-	}
+	// MND is not implemented by now
+	//
+	// if (r.Flags&DiscoverFlagUseMND) != 0 && r.MNDResolver != nil {
+	// 	addrs, err = r.MNDResolver.Request(fingerprint.URL)
+	// 	if err == nil {
+	// 		found = true
+	// 	}
+	// }
 
-	blob, err := base64.StdEncoding.DecodeString(payload.Blob)
-	if err != nil {
-		return nil, err
-	}
-
-	return blob, nil
-}
-
-const (
-	ResolveFlagUseSystemDNS = 1 << iota
-	ResolveFlagUseHTTPs
-	ResolveFlagUseMND
-)
-
-func makeURLs(ips []string, port string) []string {
-	addrs := make([]string, len(ips))
-	for i, addr := range ips {
-		if port != "" {
-			addrs[i] = fmt.Sprintf("//%s", net.JoinHostPort(addr, port))
-		} else {
-			addrs[i] = fmt.Sprintf("//%s:%s", addr, port)
+	if (a.DiscoverFlags & DiscoverFlagUseSystemDNS) != 0 {
+		payload, err := a.DiscoverViaDNS(fingerprint)
+		if err == nil {
+			return payload, nil
 		}
 	}
 
-	return addrs
-}
-
-type Resolver struct {
-	Flags           int
-	DirectoryClient *DirectoryClient
-	MNDResolver     *mnd.Node
-}
-
-func NewResolver(dirClient *DirectoryClient, flags int) Resolver {
-	var mndClient *mnd.Node
-
-	if dirClient != nil && flags&ResolveFlagUseMND > 0 {
-		// TODO: create v4 and v6 resolvers
-		mndClient = &mnd.Node{
-			Address:    "0.0.0.0:7868",
-			Group:      MNDIPv4MulticastAddress,
-			Port:       MNDPort,
-			PrivateKey: dirClient.keypair.PrivateKey,
+	if (a.DiscoverFlags & DiscoverFlagUseHTTPs) != 0 {
+		payload, err := a.DiscoverViaHTTP(fingerprint)
+		if err == nil {
+			return payload, nil
 		}
 	}
 
-	return Resolver{
-		Flags:           flags,
-		DirectoryClient: dirClient,
-		MNDResolver:     mndClient,
-	}
+	return nil, fmt.Errorf("fingerprint '%s' not found", fingerprint.String())
 }
 
-func dnsLookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
-	var payload DirectoryPayload
+// DiscoverViaDNS queries a record set of the given fingerprint from the directory
+// via DNS TXT records and verifies its signature.
+func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	var payload DirectoryRecordSet
 
 	txts, err := net.LookupTXT(fingerprint.FQDN())
 	if err != nil {
@@ -484,25 +407,201 @@ func dnsLookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
 	return &payload, nil
 }
 
-func dnsLookupHost(host string) ([]string, error) {
-	hostname, port, err := net.SplitHostPort(host)
+// DiscoverViaHTTP queries a record set of the given fingerprint from the directory
+// via HTTP GET and verifies its signature.
+func (a *DirectoryClient) DiscoverViaHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
 	if err != nil {
-		hostname = host
-		port = DefaultPort
+		return nil, err
 	}
 
-	ips, err := net.LookupHost(hostname)
+	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	return makeURLs(ips, port), nil
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
+	}
+
+	rawData, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	var payload DirectoryRecordSet
+	err = json.Unmarshal(rawData, &payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if payload.Version != 0 {
+		return nil, fmt.Errorf("unsupported api version")
+	}
+
+	ok, err := payload.CheckSignature(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return &payload, nil
 }
 
-func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
+// DiscoverAddresses is a helper function that wraps the more generic
+// Discover().
+func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	sortByRFC6724(payload.Addresses)
+
+	return payload.Addresses, nil
+}
+
+// DiscoverBlob is a helper function that wraps the more generic DiscoverViaHTTP().
+func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
+	// We want this to be specifically via HTTP for size reasons
+	payload, err := a.DiscoverViaHTTP(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if payload.Blob == "" {
+		return nil, fmt.Errorf("no blob available for: %s", fingerprint.String())
+	}
+
+	blob, err := base64.StdEncoding.DecodeString(payload.Blob)
+	if err != nil {
+		return nil, err
+	}
+
+	return blob, nil
+}
+
+// DiscoverDelegators is a helper function that wraps the more generic
+// Discover().
+func (a *DirectoryClient) DiscoverDelegators(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Delegators, nil
+}
+
+// DiscoverRelays is a helper function that wraps the more generic Discover().
+func (a *DirectoryClient) DiscoverRelays(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Relays, nil
+}
+
+// For now I keep this resolver stuff for compability purposes. Once we fully
+// migrated over to DirectoryClient.Discover(), remove all of this.
+const (
+	ResolveFlagUseSystemDNS = 1 << iota
+	ResolveFlagUseHTTPs
+	ResolveFlagUseMND
+)
+
+type Resolver struct {
+	Flags           int
+	DirectoryClient *DirectoryClient
+	MNDResolver     *mnd.Node
+}
+
+func NewResolver(dirClient *DirectoryClient, flags int) Resolver {
+	var mndClient *mnd.Node
+
+	if dirClient != nil && flags&ResolveFlagUseMND > 0 {
+		// TODO: create v4 and v6 resolvers
+		mndClient = &mnd.Node{
+			Address:    "0.0.0.0:7868",
+			Group:      MNDIPv4MulticastAddress,
+			Port:       MNDPort,
+			PrivateKey: dirClient.keypair.PrivateKey,
+		}
+	}
+
+	return Resolver{
+		Flags:           flags,
+		DirectoryClient: dirClient,
+		MNDResolver:     mndClient,
+	}
+}
+
+// This function was cloned to DirectoryClient.DiscoverViaDNS()
+func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	var payload DirectoryRecordSet
+
+	txts, err := net.LookupTXT(fingerprint.FQDN())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, txt := range txts {
+		parts := strings.SplitN(txt, "=", 2)
+		if len(parts) != 2 {
+			resolveLogger.Warningf("%s entry is corrupt", txt)
+			continue
+		}
+
+		switch parts[0] {
+		case "address":
+			parsedURL, err := url.Parse(parts[1])
+			if err != nil {
+				resolveLogger.Warningf("%s: %s", txt, err)
+				continue
+			}
+
+			payload.Addresses = append(payload.Addresses, parsedURL.String())
+
+		case "signature":
+			payload.Signature = parts[1]
+
+		case "pubkey":
+			payload.PubKey = parts[1]
+
+		case "ttl":
+			tmp, err := strconv.ParseUint(parts[1], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			payload.TTL = int(tmp)
+
+		case "timestamp":
+			payload.Timestamp = parts[1]
+		}
+	}
+
+	ok, err := payload.CheckSignature(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return &payload, nil
+}
+
+// This function was cloned to DirectoryClient.Discover()
+func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	var (
 		err     error
-		payload *DirectoryPayload
+		payload *DirectoryRecordSet
 	)
 
 	if (r.Flags & ResolveFlagUseSystemDNS) != 0 {
@@ -513,7 +612,7 @@ func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
 	}
 
 	if (r.Flags & ResolveFlagUseHTTPs) != 0 {
-		payload, err = r.DirectoryClient.Get(fingerprint)
+		payload, err = r.DirectoryClient.DiscoverViaHTTP(fingerprint)
 		if err == nil {
 			return payload, nil
 		}
@@ -522,6 +621,8 @@ func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
 	return nil, fmt.Errorf("lookup %s: not found", fingerprint.String())
 }
 
+// This function was cloned partly to DirectoryClient.Discover() and partly to
+// DirectoryClient.DiscoverAddresses()
 func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 	var (
 		addrs []string
@@ -554,13 +655,4 @@ func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 	}
 
 	return nil, fmt.Errorf("fingerprint %s not present", fingerprint.String())
-}
-
-func (r *Resolver) LookupDelegators(fingerprint *Fingerprint) ([]string, error) {
-	payload, err := r.Lookup(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	return payload.Delegators, nil
 }
