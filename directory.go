@@ -212,6 +212,7 @@ type DirectoryClient struct {
 	options    *DirectoryOptions
 }
 
+// NewDirectoryClient creates a new type DirectoryClient with default settings
 func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -228,6 +229,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	}
 }
 
+// Put sends a json-encoded record set to the directory via HTTP PUT.
 func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) {
 	u := url.URL{}
 	u.Scheme = "https"
@@ -271,6 +273,8 @@ func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) 
 	return resp, nil
 }
 
+// Get queries a record set of the given fingerprint from the directory via HTTP
+// GET and only returns record sets with valid signatures.
 func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, error) {
 	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
 	if err != nil {
