@@ -2,6 +2,7 @@ package sep
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -9,12 +10,14 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -25,11 +28,14 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// TODO: error
-func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, error, error) {
+// BidirectCopy is a helper which spawns two goroutines.
+// Each goroutine copies data from left to right and right to
+// left respectively.
+func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, error) {
 	var (
 		n1   = 0
 		n2   = 0
+		err  error
 		err1 error
 		err2 error
 		wg   sync.WaitGroup
@@ -63,9 +69,21 @@ func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, 
 
 	wg.Wait()
 
-	return n1, n2, err1, err2
+	if err1 != nil && err2 != nil {
+		err = fmt.Errorf("both copier failed; left: %s; right: %s", err1, err2)
+	} else {
+		if err1 != nil {
+			err = err1
+		} else if err2 != nil {
+			err = err2
+		}
+	}
+
+	return n1, n2, err
 }
 
+// GenKeypairPEM generates a fresh new keypair and returns a
+// the certificate and the key is pem encoded bytes.
 func GenKeypairPEM() ([]byte, []byte, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
@@ -129,6 +147,7 @@ func GenKeypairPEM() ([]byte, []byte, error) {
 	return certPEM, keyPEM, nil
 }
 
+// GenKeypair generates a fresh keypair and returns a parsed tls.Certificate.
 func GenKeypair() (tls.Certificate, error) {
 	certPEM, keyPEM, err := GenKeypairPEM()
 	if err != nil {
@@ -141,6 +160,99 @@ func GenKeypair() (tls.Certificate, error) {
 	}
 
 	return keypair, nil
+}
+
+// GenKeypair generates a fresh keypair and stores the key and the corresponding
+// certificate in the supplied paths. PEM encoding is used.
+func GenKeypairFile(keyPath, certPath string) error {
+	if _, err := os.Stat(keyPath); err == nil {
+		return fmt.Errorf("private key already exists")
+	}
+
+	if _, err := os.Stat(certPath); err == nil {
+		return fmt.Errorf("certificate already exists")
+	}
+
+	certPEM, keyPEM, err := GenKeypairPEM()
+	if err != nil {
+		return err
+	}
+
+	certBase := filepath.Dir(certPath)
+	keyBase := filepath.Dir(keyPath)
+
+	err = os.MkdirAll(certBase, 0700)
+	if err != nil {
+		return err
+	}
+	if certBase != keyBase {
+		err = os.MkdirAll(keyBase, 0700)
+		if err != nil {
+			return err
+		}
+	}
+
+	certOut, err := os.Create(certPath)
+	if err != nil {
+		return err
+	}
+	defer certOut.Close()
+
+	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer keyOut.Close()
+
+	_, err = io.Copy(certOut, bytes.NewBuffer(certPEM))
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(keyOut, bytes.NewBuffer(keyPEM))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TODO: Stolen from go 1.13. Remove once 1.13 is released.
+func UserConfigDir() (string, error) {
+	var dir string
+
+	switch runtime.GOOS {
+	case "windows":
+		dir = os.Getenv("AppData")
+		if dir == "" {
+			return "", errors.New("%AppData% is not defined")
+		}
+
+	case "darwin":
+		dir = os.Getenv("HOME")
+		if dir == "" {
+			return "", errors.New("$HOME is not defined")
+		}
+		dir += "/Library/Application Support"
+
+	case "plan9":
+		dir = os.Getenv("home")
+		if dir == "" {
+			return "", errors.New("$home is not defined")
+		}
+		dir += "/lib"
+
+	default: // Unix
+		dir = os.Getenv("XDG_CONFIG_HOME")
+		if dir == "" {
+			dir = os.Getenv("HOME")
+			if dir == "" {
+				return "", errors.New("neither $XDG_CONFIG_HOME nor $HOME are defined")
+			}
+			dir += "/.config"
+		}
+	}
+
+	return dir, nil
 }
 
 // GatherAllAddresses gathers the IP addresses of all local interfaces and
