@@ -412,7 +412,8 @@ func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryReco
 	return &payload, nil
 }
 
-// DiscoverAddresses is a helper function that wraps the more generic Discover()
+// DiscoverAddresses is a helper function that wraps the more generic
+// Discover().
 func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string, error) {
 	payload, err := a.Discover(fingerprint)
 	if err != nil {
@@ -422,7 +423,7 @@ func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string,
 	return payload.Addresses, nil
 }
 
-// DiscoverBlob is a helper function that wraps the more generic DiscoverHTTP()
+// DiscoverBlob is a helper function that wraps the more generic DiscoverHTTP().
 func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
 	// We want this to be specifically via HTTP for size reasons
 	payload, err := a.DiscoverHTTP(fingerprint)
@@ -442,7 +443,8 @@ func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error)
 	return blob, nil
 }
 
-// DiscoverDelegators is a helper function that wraps the more generic Discover()
+// DiscoverDelegators is a helper function that wraps the more generic
+// Discover().
 func (a *DirectoryClient) DiscoverDelegators(fingerprint *Fingerprint) ([]string, error) {
 	payload, err := a.Discover(fingerprint)
 	if err != nil {
@@ -450,6 +452,16 @@ func (a *DirectoryClient) DiscoverDelegators(fingerprint *Fingerprint) ([]string
 	}
 
 	return payload.Delegators, nil
+}
+
+// DiscoverRelays is a helper function that wraps the more generic Discover().
+func (a *DirectoryClient) DiscoverRelays(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Relays, nil
 }
 
 const (
