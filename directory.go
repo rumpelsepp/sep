@@ -231,7 +231,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 
 // Announce signs the record set and sends it to the directory in a json-encoded
 // HTTP PUT request.
-func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*http.Response, error) {
+func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryResponse, error) {
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -276,7 +276,12 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*http.Response, 
 
 	announceLogger.Debugf("answer: %+v", resp)
 
-	return resp, nil
+	response, err := parseDirectoryResponse(resp.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // DiscoverHTTP queries a record set of the given fingerprint from the directory
@@ -324,27 +329,19 @@ func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryReco
 	return &payload, nil
 }
 
-func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
+// AnnounceAddresses is a helper function that wraps the more generic Announce()
+func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
 	payload := DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
 		TTL:       ttl,
 	}
 
-	resp, err := a.Announce(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := parseDirectoryResponse(resp.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return a.Announce(payload)
 }
 
-func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, error) {
+// AnnounceBlob is a helper function that wraps the more generic Announce()
+func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse, error) {
 	var (
 		b64Data = base64.StdEncoding.EncodeToString(data)
 		payload = DirectoryRecordSet{
@@ -354,17 +351,7 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, er
 		}
 	)
 
-	resp, err := a.Announce(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := parseDirectoryResponse(resp.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return a.Announce(payload)
 }
 
 func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
