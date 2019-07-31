@@ -30,7 +30,7 @@ type DirectoryOptions struct {
 	WholeCert bool   `json:"wholecert"`
 }
 
-type DirectoryPayload struct {
+type DirectoryRecordSet struct {
 	Addresses  []string          `json:"addresses,omitempty"`
 	Delegators []string          `json:"delegator,omitempty"`
 	Relays     []string          `json:"relay,omitempty"`
@@ -55,7 +55,7 @@ func concat(date []string) string {
 	return res
 }
 
-func (a *DirectoryPayload) digest() []byte {
+func (a *DirectoryRecordSet) digest() []byte {
 	var res string
 
 	if len(a.Addresses) > 0 {
@@ -85,7 +85,7 @@ func (a *DirectoryPayload) digest() []byte {
 // concatenation, binary data must be converted to base64 strings first.
 //
 //  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
-func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
+func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 	var (
 		// FIXME: Do not panic!!!
 		now     = time.Now()
@@ -124,7 +124,7 @@ func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
 // CheckSignature verifies the integrity and authenticity of a DirectoryPayload
 // by validating the signature of the payload and checking whether the key used
 // for signing matches the given fingerprint.
-func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error) {
+func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	var timestamp time.Time
 	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
 		return false, err
@@ -230,7 +230,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 }
 
 // Put sends a json-encoded record set to the directory via HTTP PUT.
-func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) {
+func (a *DirectoryClient) Put(payload DirectoryRecordSet) (*http.Response, error) {
 	u := url.URL{}
 	u.Scheme = "https"
 	u.Host = a.endpoint
@@ -275,7 +275,7 @@ func (a *DirectoryClient) Put(payload DirectoryPayload) (*http.Response, error) 
 
 // Get queries a record set of the given fingerprint from the directory via HTTP
 // GET and only returns record sets with valid signatures.
-func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, error) {
+func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, erro
 		return nil, err
 	}
 
-	var payload DirectoryPayload
+	var payload DirectoryRecordSet
 	err = json.Unmarshal(rawData, &payload)
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, erro
 }
 
 func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
-	payload := DirectoryPayload{
+	payload := DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
 		TTL:       ttl,
@@ -347,7 +347,7 @@ func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*Directory
 func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, error) {
 	var (
 		b64Data = base64.StdEncoding.EncodeToString(data)
-		payload = DirectoryPayload{
+		payload = DirectoryRecordSet{
 			Blob:    b64Data,
 			TTL:     ttl,
 			Options: a.options,
@@ -435,8 +435,8 @@ func NewResolver(dirClient *DirectoryClient, flags int) Resolver {
 	}
 }
 
-func dnsLookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
-	var payload DirectoryPayload
+func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	var payload DirectoryRecordSet
 
 	txts, err := net.LookupTXT(fingerprint.FQDN())
 	if err != nil {
@@ -506,10 +506,10 @@ func dnsLookupHost(host string) ([]string, error) {
 	return makeURLs(ips, port), nil
 }
 
-func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryPayload, error) {
+func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	var (
 		err     error
-		payload *DirectoryPayload
+		payload *DirectoryRecordSet
 	)
 
 	if (r.Flags & ResolveFlagUseSystemDNS) != 0 {
