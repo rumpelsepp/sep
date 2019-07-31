@@ -309,6 +309,14 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse
 	return a.Announce(payload)
 }
 
+// Discover serves universal function call for discovering the record set of a
+// fingerprint.
+// TODO: More details about options and what to do once implemented!
+func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	// Until further notice, just return HTTP queries...
+	return a.DiscoverHTTP(fingerprint)
+}
+
 // DiscoverDNS queries a record set of the given fingerprint from the directory
 // via DNS TXT records and verifies its signature.
 func (a *DirectoryClient) DiscoverDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
@@ -412,8 +420,19 @@ func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryReco
 	return &payload, nil
 }
 
-// DiscoverBlob is a helper function that wraps the more generic Discover()
+// DiscoverAddresses is a helper function that wraps the more generic Discover()
+func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Addresses, nil
+}
+
+// DiscoverBlob is a helper function that wraps the more generic DiscoverHTTP()
 func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
+	// We want this to be specifically via HTTP for size reasons
 	payload, err := a.DiscoverHTTP(fingerprint)
 	if err != nil {
 		return nil, err
@@ -429,6 +448,16 @@ func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error)
 	}
 
 	return blob, nil
+}
+
+// DiscoverDelegators is a helper function that wraps the more generic Discover()
+func (a *DirectoryClient) DiscoverDelegators(fingerprint *Fingerprint) ([]string, error) {
+	payload, err := a.Discover(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload.Delegators, nil
 }
 
 const (
