@@ -437,19 +437,6 @@ const (
 	ResolveFlagUseMND
 )
 
-func makeURLs(ips []string, port string) []string {
-	addrs := make([]string, len(ips))
-	for i, addr := range ips {
-		if port != "" {
-			addrs[i] = fmt.Sprintf("//%s", net.JoinHostPort(addr, port))
-		} else {
-			addrs[i] = fmt.Sprintf("//%s:%s", addr, port)
-		}
-	}
-
-	return addrs
-}
-
 type Resolver struct {
 	Flags           int
 	DirectoryClient *DirectoryClient
@@ -531,21 +518,6 @@ func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	}
 
 	return &payload, nil
-}
-
-func dnsLookupHost(host string) ([]string, error) {
-	hostname, port, err := net.SplitHostPort(host)
-	if err != nil {
-		hostname = host
-		port = DefaultPort
-	}
-
-	ips, err := net.LookupHost(hostname)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return makeURLs(ips, port), nil
 }
 
 func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
