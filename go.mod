@@ -11,4 +11,5 @@ require (
 	golang.org/x/sys v0.0.0-20190726091711-fc99dfbffb4e
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20190729092621-ff9f1409240a // indirect
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 )
