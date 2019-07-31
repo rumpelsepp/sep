@@ -172,18 +172,11 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 }
 
 type DirectoryResponse struct {
-	TTL         time.Duration
 	Fingerprint *Fingerprint
 	Location    *url.URL
 }
 
 func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
-	rawTTL := header.Get("reannounce-after")
-	TTL, err := time.ParseDuration(rawTTL)
-	if err != nil {
-		return nil, err
-	}
-
 	rawLocation := header.Get("Content-Location")
 	location, err := url.Parse(rawLocation)
 	if err != nil {
@@ -197,7 +190,6 @@ func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
 	}
 
 	response := &DirectoryResponse{
-		TTL:         TTL,
 		Location:    location,
 		Fingerprint: fingerprint,
 	}
