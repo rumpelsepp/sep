@@ -3,6 +3,7 @@ package sep
 import (
 	"crypto/tls"
 	"io"
+	"net"
 	"os"
 )
 
@@ -12,6 +13,12 @@ const (
 	DefaultResolveDomain    = "ace-sep.de"
 	AlpSEP                  = "SEP/0"
 	AlpSEPRelay             = "SEP-RELAY/0"
+)
+
+var (
+	MNDIPv4MulticastAddress = net.ParseIP("224.0.0.251")
+	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
+	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 )
 
 // NewDefaultTLSConfig returns type tls.Config with default settings utilized in
