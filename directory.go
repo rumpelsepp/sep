@@ -354,6 +354,64 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse
 	return a.Announce(payload)
 }
 
+// DiscoverDNS queries a record set of the given fingerprint from the directory
+// via DNS TXT records and verifies its signature.
+func (a *DirectoryClient) DiscoverDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	var payload DirectoryRecordSet
+
+	txts, err := net.LookupTXT(fingerprint.FQDN())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, txt := range txts {
+		parts := strings.SplitN(txt, "=", 2)
+		if len(parts) != 2 {
+			resolveLogger.Warningf("%s entry is corrupt", txt)
+			continue
+		}
+
+		switch parts[0] {
+		case "address":
+			parsedURL, err := url.Parse(parts[1])
+			if err != nil {
+				resolveLogger.Warningf("%s: %s", txt, err)
+				continue
+			}
+
+			payload.Addresses = append(payload.Addresses, parsedURL.String())
+
+		case "signature":
+			payload.Signature = parts[1]
+
+		case "pubkey":
+			payload.PubKey = parts[1]
+
+		case "ttl":
+			tmp, err := strconv.ParseUint(parts[1], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			payload.TTL = int(tmp)
+
+		case "timestamp":
+			payload.Timestamp = parts[1]
+		}
+	}
+
+	ok, err := payload.CheckSignature(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return &payload, nil
+}
+
 // DiscoverBlob is a helper function that wraps the more generic Discover()
 func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
 	payload, err := a.DiscoverHTTP(fingerprint)
@@ -418,6 +476,7 @@ func NewResolver(dirClient *DirectoryClient, flags int) Resolver {
 	}
 }
 
+// This function was cloned to DirectoryClient.DiscoverDNS(), but keep for now!
 func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	var payload DirectoryRecordSet
 
