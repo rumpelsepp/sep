@@ -82,9 +82,9 @@ func (a *DirectoryPayload) digest() []byte {
 	return digest[:]
 }
 
-// The signature is created over the following data;
-// | means concatenation, binary data must be converted to
-// base64 strings first.
+// Sign appends a base64-encoded signature, current timestamp and public key to
+// the DirectoryPayload. The signature consists of the following data; | means
+// concatenation, binary data must be converted to base64 strings first.
 //
 //  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
 func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
@@ -123,6 +123,9 @@ func (a *DirectoryPayload) Sign(privateKey crypto.PrivateKey) error {
 	return nil
 }
 
+// CheckSignature verifies the integrity and authenticity of a DirectoryPayload
+// by validating the signature of the payload and checking whether the key used
+// for signing matches the given fingerprint.
 func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	var timestamp time.Time
 	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
@@ -134,8 +137,8 @@ func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error
 		return false, err
 	}
 
+	// Verify hash of public key against fingerprint
 	digest := sha3.Sum256(rawPubKey)
-
 	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
