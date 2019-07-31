@@ -198,23 +198,23 @@ func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
 }
 
 type DirectoryClient struct {
-	endpoint   string
-	httpClient *http.Client
-	keypair    *tls.Certificate
-	options    *DirectoryOptions
-	// DiscoverFlags int
+	endpoint      string
+	httpClient    *http.Client
+	keypair       *tls.Certificate
+	options       *DirectoryOptions
+	DiscoverFlags int
 	// We need this for MND Discovery
 	// MNDDiscover   *mnd.Node
 }
 
-// Moreover, this:
-// const (
-// 	DiscoverFlagUseSystemDNS = 1 << iota
-// 	DiscoverFlagUseHTTPs
-// 	DiscoverFlagUseMND
-// )
+const (
+	DiscoverFlagUseSystemDNS = 1 << iota
+	DiscoverFlagUseHTTPs
+	DiscoverFlagUseMND
+)
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
+// TODO Add more details about those defaults, e.g. DiscoverFlags
 func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -224,10 +224,11 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	}
 
 	return DirectoryClient{
-		endpoint:   addr,
-		keypair:    keypair,
-		httpClient: client,
-		options:    options,
+		endpoint:      addr,
+		keypair:       keypair,
+		httpClient:    client,
+		options:       options,
+		DiscoverFlags: DiscoverFlagUseHTTPs,
 	}
 }
 
@@ -312,16 +313,15 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse
 }
 
 // Discover serves universal function call for discovering the record set of a
-// fingerprint.
-// TODO: More details about options and what to do once implemented!
+// fingerprint. Depending on the DiscoverFlags set different schemes are tried,
+// but always in this order:
+//  - MND     : Discover in local network with MND protocol
+//  - ni-URI  : Discover via DNS TXT records and validate signature
+//  - HTTP    : Discover via HTTP GET and validate signature
 func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	// Until further notice, just return HTTP queries...
-	return a.DiscoverHTTP(fingerprint)
-
-	// These schemes are tried in this order:
-	//  - MND     : Search in local network with MND protocol
-	//  - ni-URI  : Check TXT records and validate signature
-	//  - HTTP    : Fetch JSON and validate signature
+	if a.DiscoverFlags == 0 {
+		return nil, fmt.Errorf("no DiscoverFlags present")
+	}
 
 	// MND is not implemented by now
 	//
@@ -332,18 +332,14 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	// 	}
 	// }
 
-	// Disregard non-existent flags
-	// if (r.Flags & DiscoverFlagUseSystemDNS) != 0 {
-	{
+	if (a.DiscoverFlags & DiscoverFlagUseSystemDNS) != 0 {
 		payload, err := a.DiscoverViaDNS(fingerprint)
 		if err == nil {
 			return payload, nil
 		}
 	}
 
-	// Disregard non-existent flags
-	// if (r.Flags & DiscoverFlagUseHTTPs) != 0 {
-	{
+	if (a.DiscoverFlags & DiscoverFlagUseHTTPs) != 0 {
 		payload, err := a.DiscoverViaHTTP(fingerprint)
 		if err == nil {
 			return payload, nil
