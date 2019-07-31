@@ -129,6 +129,10 @@ func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error
 		return false, err
 	}
 
+	if dur := time.Since(timestamp); dur > time.Duration(a.TTL)*time.Second {
+		return false, fmt.Errorf("recordSet expired")
+	}
+
 	rawPubKey, err := base64.StdEncoding.DecodeString(a.PubKey)
 	if err != nil {
 		return false, err
