@@ -229,9 +229,9 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	}
 }
 
-// Put signs the record set and sends it to the directory via a json-encoded
+// Announce signs the record set and sends it to the directory in a json-encoded
 // HTTP PUT request.
-func (a *DirectoryClient) Put(payload DirectoryRecordSet) (*http.Response, error) {
+func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*http.Response, error) {
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -279,9 +279,9 @@ func (a *DirectoryClient) Put(payload DirectoryRecordSet) (*http.Response, error
 	return resp, nil
 }
 
-// Get queries a record set of the given fingerprint from the directory via HTTP
-// GET and only returns record sets with valid signatures.
-func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+// DiscoverHTTP queries a record set of the given fingerprint from the directory
+// via HTTP GET and verifies its signature.
+func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
 	if err != nil {
 		return nil, err
@@ -331,7 +331,7 @@ func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*Directory
 		TTL:       ttl,
 	}
 
-	resp, err := a.Put(payload)
+	resp, err := a.Announce(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, er
 		}
 	)
 
-	resp, err := a.Put(payload)
+	resp, err := a.Announce(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, er
 }
 
 func (a *DirectoryClient) FetchBlob(fingerprint *Fingerprint) ([]byte, error) {
-	payload, err := a.Get(fingerprint)
+	payload, err := a.DiscoverHTTP(fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -515,7 +515,7 @@ func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error)
 	}
 
 	if (r.Flags & ResolveFlagUseHTTPs) != 0 {
-		payload, err = r.DirectoryClient.Get(fingerprint)
+		payload, err = r.DirectoryClient.DiscoverHTTP(fingerprint)
 		if err == nil {
 			return payload, nil
 		}
