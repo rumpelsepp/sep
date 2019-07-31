@@ -14,7 +14,12 @@ const (
 	AlpSEPRelay             = "SEP-RELAY/0"
 )
 
-func DefaultTLSConfig(cert tls.Certificate) *tls.Config {
+// NewDefaultTLSConfig returns type tls.Config with default settings utilized in
+// SEP. This means TLS1.2 is required at minimum, client certificates are
+// mandatory, session tickets are disabled, certificate checks are enforced,
+// dynamic record sizing is disabled and environmental variable `SSLKEYLOGFILE`
+// is respected.
+func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 	var (
 		err          error
 		keyLogWriter io.Writer

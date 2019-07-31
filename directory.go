@@ -177,7 +177,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	client := &http.Client{
 		Transport: &http.Transport{
 			DisableCompression: true,
-			TLSClientConfig:    DefaultTLSConfig(*keypair),
+			TLSClientConfig:    NewDefaultTLSConfig(*keypair),
 		},
 	}
 
