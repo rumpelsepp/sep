@@ -284,51 +284,6 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 	return response, nil
 }
 
-// DiscoverHTTP queries a record set of the given fingerprint from the directory
-// via HTTP GET and verifies its signature.
-func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
-	}
-
-	rawData, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	var payload DirectoryRecordSet
-	err = json.Unmarshal(rawData, &payload)
-	if err != nil {
-		return nil, err
-	}
-
-	if payload.Version != 0 {
-		return nil, fmt.Errorf("unsupported api version")
-	}
-
-	ok, err := payload.CheckSignature(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return &payload, nil
-}
-
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
 	payload := DirectoryRecordSet{
@@ -398,6 +353,51 @@ func (a *DirectoryClient) DiscoverDNS(fingerprint *Fingerprint) (*DirectoryRecor
 		case "timestamp":
 			payload.Timestamp = parts[1]
 		}
+	}
+
+	ok, err := payload.CheckSignature(fingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return &payload, nil
+}
+
+// DiscoverHTTP queries a record set of the given fingerprint from the directory
+// via HTTP GET and verifies its signature.
+func (a *DirectoryClient) DiscoverHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
+	}
+
+	rawData, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	var payload DirectoryRecordSet
+	err = json.Unmarshal(rawData, &payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if payload.Version != 0 {
+		return nil, fmt.Errorf("unsupported api version")
 	}
 
 	ok, err := payload.CheckSignature(fingerprint)
