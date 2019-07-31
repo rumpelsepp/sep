@@ -202,7 +202,17 @@ type DirectoryClient struct {
 	httpClient *http.Client
 	keypair    *tls.Certificate
 	options    *DirectoryOptions
+	// DiscoverFlags int
+	// We need this for MND Discovery
+	// MNDDiscover   *mnd.Node
 }
+
+// Moreover, this:
+// const (
+// 	DiscoverFlagUseSystemDNS = 1 << iota
+// 	DiscoverFlagUseHTTPs
+// 	DiscoverFlagUseMND
+// )
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) DirectoryClient {
@@ -307,6 +317,40 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse
 func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	// Until further notice, just return HTTP queries...
 	return a.DiscoverHTTP(fingerprint)
+
+	// These schemes are tried in this order:
+	//  - MND     : Search in local network with MND protocol
+	//  - ni-URI  : Check TXT records and validate signature
+	//  - HTTP    : Fetch JSON and validate signature
+
+	// MND is not implemented by now
+	//
+	// if (r.Flags&DiscoverFlagUseMND) != 0 && r.MNDResolver != nil {
+	// 	addrs, err = r.MNDResolver.Request(fingerprint.URL)
+	// 	if err == nil {
+	// 		found = true
+	// 	}
+	// }
+
+	// Disregard non-existent flags
+	// if (r.Flags & DiscoverFlagUseSystemDNS) != 0 {
+	{
+		payload, err := a.DiscoverDNS(fingerprint)
+		if err == nil {
+			return payload, nil
+		}
+	}
+
+	// Disregard non-existent flags
+	// if (r.Flags & DiscoverFlagUseHTTPs) != 0 {
+	{
+		payload, err := a.DiscoverHTTP(fingerprint)
+		if err == nil {
+			return payload, nil
+		}
+	}
+
+	return nil, fmt.Errorf("fingerprint '%s' not found", fingerprint.String())
 }
 
 // DiscoverDNS queries a record set of the given fingerprint from the directory
@@ -420,6 +464,8 @@ func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string,
 		return nil, err
 	}
 
+	sortByRFC6724(payload.Addresses)
+
 	return payload.Addresses, nil
 }
 
@@ -464,6 +510,8 @@ func (a *DirectoryClient) DiscoverRelays(fingerprint *Fingerprint) ([]string, er
 	return payload.Relays, nil
 }
 
+// For now I keep this resolver stuff for compability purposes. Once we fully
+// migrated over to DirectoryClient.Discover(), remove all of this.
 const (
 	ResolveFlagUseSystemDNS = 1 << iota
 	ResolveFlagUseHTTPs
@@ -553,6 +601,7 @@ func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	return &payload, nil
 }
 
+// This function was cloned to DirectoryClient.Discover()
 func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	var (
 		err     error
@@ -576,6 +625,8 @@ func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error)
 	return nil, fmt.Errorf("lookup %s: not found", fingerprint.String())
 }
 
+// This function was cloned partly to DirectoryClient.Discover() and partly to
+// DirectoryClient.DiscoverAddresses()
 func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 	var (
 		addrs []string
