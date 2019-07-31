@@ -43,12 +43,6 @@ type DirectoryPayload struct {
 	Options    *DirectoryOptions `json:"options,omitempty"`
 }
 
-type DirectoryResponse struct {
-	TTL         time.Duration
-	Fingerprint *Fingerprint
-	Location    *url.URL
-}
-
 type ecdsaSignature struct {
 	R, S *big.Int
 }
@@ -177,6 +171,40 @@ func (a *DirectoryPayload) CheckSignature(fingerprint *Fingerprint) (bool, error
 	return true, nil
 }
 
+type DirectoryResponse struct {
+	TTL         time.Duration
+	Fingerprint *Fingerprint
+	Location    *url.URL
+}
+
+func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
+	rawTTL := header.Get("reannounce-after")
+	TTL, err := time.ParseDuration(rawTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	rawLocation := header.Get("Content-Location")
+	location, err := url.Parse(rawLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	rawFingerprint := header.Get("Fingerprint")
+	fingerprint, err := FingerprintFromNIString(rawFingerprint)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DirectoryResponse{
+		TTL:         TTL,
+		Location:    location,
+		Fingerprint: fingerprint,
+	}
+
+	return response, nil
+}
+
 type DirectoryClient struct {
 	endpoint   string
 	httpClient *http.Client
@@ -286,34 +314,6 @@ func (a *DirectoryClient) Get(fingerprint *Fingerprint) (*DirectoryPayload, erro
 	return &payload, nil
 }
 
-func getResponse(header http.Header) (*DirectoryResponse, error) {
-	rawTTL := header.Get("reannounce-after")
-	TTL, err := time.ParseDuration(rawTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	rawLocation := header.Get("Content-Location")
-	location, err := url.Parse(rawLocation)
-	if err != nil {
-		return nil, err
-	}
-
-	rawFingerprint := header.Get("Fingerprint")
-	fingerprint, err := FingerprintFromNIString(rawFingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DirectoryResponse{
-		TTL:         TTL,
-		Location:    location,
-		Fingerprint: fingerprint,
-	}
-
-	return response, nil
-}
-
 func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
 	payload := DirectoryPayload{
 		Addresses: addresses,
@@ -332,7 +332,7 @@ func (a *DirectoryClient) PushAddresses(addresses []string, ttl int) (*Directory
 		return nil, err
 	}
 
-	response, err := getResponse(resp.Header)
+	response, err := parseDirectoryResponse(resp.Header)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ func (a *DirectoryClient) PushBlob(data []byte, ttl int) (*DirectoryResponse, er
 		return nil, err
 	}
 
-	response, err := getResponse(resp.Header)
+	response, err := parseDirectoryResponse(resp.Header)
 	if err != nil {
 		return nil, err
 	}
