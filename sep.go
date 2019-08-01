@@ -2,7 +2,6 @@ package sep
 
 import (
 	"crypto/tls"
-	"io"
 	"net"
 	"os"
 )
@@ -29,14 +28,15 @@ var (
 func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 	var (
 		err          error
-		keyLogWriter io.Writer
+		keyLogWriter *os.File
 	)
 
 	if sslKeyLogFile, ok := os.LookupEnv("SSLKEYLOGFILE"); ok {
-		keyLogWriter, err = os.OpenFile(sslKeyLogFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		keyLogWriter, err = os.OpenFile(sslKeyLogFile, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			panic(err)
 		}
+		keyLogWriter.Seek(0, os.SEEK_END)
 	}
 
 	return &tls.Config{
