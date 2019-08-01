@@ -1,29 +1,25 @@
 package sep
 
 import (
+	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"strings"
 	"time"
-
-	"github.com/hashicorp/yamux"
 )
-
-var ErrIsSession = errors.New("connection is a session")
 
 type TCPConn struct {
 	tlsConn           *tls.Conn
 	transport         *net.TCPConn
 	network           string
-	multiplexer       Multiplexer
 	config            *Config
 	localFingerprint  *Fingerprint
 	remoteFingerprint *Fingerprint
 	alp               string
 
-	isServer  bool
-	isSession bool
+	isServer bool
 }
 
 func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
@@ -100,18 +96,10 @@ func (c *TCPConn) RawConnection() net.Conn {
 }
 
 func (c *TCPConn) Read(b []byte) (int, error) {
-	if c.isSession {
-		return 0, ErrIsSession
-	}
-
 	return c.tlsConn.Read(b)
 }
 
 func (c *TCPConn) Write(b []byte) (int, error) {
-	if c.isSession {
-		return 0, ErrIsSession
-	}
-
 	return c.tlsConn.Write(b)
 }
 
@@ -151,89 +139,147 @@ func (c *TCPConn) ALP() string {
 	return c.alp
 }
 
-type sepMuxer struct {
-	*yamux.Session
+type tcpListener struct {
+	net.Listener
+	Config *Config
 }
 
-func (m *sepMuxer) AcceptStream() (Stream, error) {
-	stream, err := m.Session.AcceptStream()
-	if err != nil {
-		return nil, err
-	}
-	return &tcpStream{stream}, nil
-}
-
-func (m *sepMuxer) OpenStream() (Stream, error) {
-	stream, err := m.Session.OpenStream()
-	if err != nil {
-		return nil, err
-	}
-	return &tcpStream{stream}, nil
-}
-
-func (c *TCPConn) initMuxer() error {
-	logger.Debugln("initializing multiplexer...")
-
+func tcpListen(network, address string, config *Config) (*tcpListener, error) {
 	var (
-		err   error
-		muxer *yamux.Session
+		ln  net.Listener
+		err error
 	)
 
-	if c.isServer {
-		muxer, err = yamux.Server(c.tlsConn, nil)
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		if config.TCPFastOpen {
+			lc := net.ListenConfig{
+				Control: setTCPFastOpenCallback,
+			}
+
+			ln, err = lc.Listen(context.Background(), network, address)
+		} else {
+			ln, err = net.Listen(network, address)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+	default:
+		panic("network is not supported")
+	}
+
+	return &tcpListener{
+		Listener: ln,
+		Config:   config,
+	}, nil
+}
+
+func (ln *tcpListener) Accept() (Conn, error) {
+	conn, err := ln.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	// This won't panic, otherwise it's a bug.
+	tcpConn := conn.(*net.TCPConn)
+
+	tunnel, err := tcpServer(tcpConn, ln.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return tunnel, nil
+}
+
+type tcpDialer struct {
+	dialer    *net.Dialer
+	Config    *Config
+	directory DirectoryClient
+	visited   []string
+}
+
+// TODO: Add a resolver argument
+func newTCPDialer(config Config) Dialer {
+	var dialer *net.Dialer
+
+	if config.TCPFastOpen {
+		dialer = &net.Dialer{
+			Control: setTCPFastOpenConnectCallback,
+		}
 	} else {
-		muxer, err = yamux.Client(c.tlsConn, nil)
+		dialer = &net.Dialer{}
 	}
 
-	if err != nil {
-		return err
+	dirClient := NewDirectoryClient(DefaultResolveDomain, &config.TLSConfig.Certificates[0], nil)
+
+	return &tcpDialer{
+		dialer:    dialer,
+		Config:    &config,
+		directory: dirClient,
 	}
-
-	c.multiplexer = &sepMuxer{muxer}
-	c.isSession = true
-
-	return nil
 }
 
-type tcpStream struct {
-	*yamux.Stream
-}
+func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (Conn, error) {
+	var c Conn
 
-func (s *tcpStream) StreamID() uint64 {
-	return uint64(s.Stream.StreamID())
-}
+	d.Config.TLSConfig.NextProtos = []string{AlpSEP}
+	d.dialer.Timeout = timeout
 
-// TODO: Mutex
-func (c *TCPConn) AcceptStream() (Stream, error) {
-	if !c.isSession {
-		c.initMuxer()
-	}
-
-	logger.Debugln("accepting stream...")
-
-	stream, err := c.multiplexer.AcceptStream()
+	fingerprint, err := FingerprintFromNIString(target)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debugf("got stream: %+v", stream)
-
-	return stream, nil
-}
-
-func (c *TCPConn) OpenStream() (Stream, error) {
-	if !c.isSession {
-		c.initMuxer()
-	}
-
-	logger.Debugln("opening stream...")
-
-	stream, err := c.multiplexer.OpenStream()
+	addrs, err := d.directory.DiscoverAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debugf("got stream: %+v", stream)
+	for _, addr := range addrs {
+		parsedAddr, err := url.Parse(addr)
+		if err != nil {
+			logger.Debugln(err)
+			continue
+		}
 
-	return stream, nil
+		network := parsedAddr.Scheme
+		if network == "" {
+			network = "tcp"
+		}
+
+		if !strings.Contains(network, "tcp") {
+			logger.Debugf("wrong network: %s", network)
+			continue
+		}
+
+		tcpConnIntf, err := d.dialer.Dial(network, parsedAddr.Host)
+		if err != nil {
+			logger.Debugln(err)
+			continue
+		}
+
+		// This won't panic, otherwise it's a bug.
+		tcpConn := tcpConnIntf.(*net.TCPConn)
+
+		c, err = tcpClient(tcpConn, d.Config)
+		if err != nil {
+			// This can happen, because TCP-FO is in use. connect(2)
+			// returns immediately and fails on the first read(2) if
+			// the connection cannot be established. In this case,
+			// we must clean the connection in order to avoid a nil
+			// pointer dereference.
+			c = nil
+			logger.Debugln(err)
+			continue
+		}
+
+		// When the loop reaches this point, there is a connection.
+		logger.Debugf("established SEP connection to: %s", c.RemoteAddr())
+
+		return c, nil
+	}
+
+	return nil, fmt.Errorf("could not connect to: %s", target)
 }
