@@ -296,7 +296,7 @@ func GatherAllAddresses(port string) ([]string, error) {
 //	ni://<authority>/<algorithm>;<value>		<alias>
 //	ni://<authority>/<algorithm>;<value>		<alias>
 func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
-	rlog.Debugf("Loading authorized fingerprints from %s\n", path)
+	rlog.Debugf("Loading authorized fingerprints from %s", path)
 
 	m := make(map[string]*Fingerprint)
 
@@ -318,7 +318,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 
 		// Ignore comments
 		if strings.HasPrefix(scanner.Text(), "#") {
-			rlog.Debugf("Ignoring comment:\t\"%s\"\n", scanner.Text())
+			rlog.Debugf("Ignoring comment:\t\"%s\"", scanner.Text())
 			continue
 		}
 		// Ignore empty lines
@@ -329,7 +329,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 		// Ignore invalid lines
 		fingerprint, err := FingerprintFromNIString(fields[0])
 		if len(fields) != 2 || err != nil {
-			rlog.Debugf("Could not parse:\t\"%s\"\n", scanner.Text())
+			rlog.Debugf("Could not parse:\t\"%s\"", scanner.Text())
 			continue
 		}
 
@@ -338,7 +338,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 
 	rlog.Debugln("Extracted these fingerprints:")
 	for k, v := range m {
-		rlog.Debugf("\t%s\t%s\n", v, k)
+		rlog.Debugf("\t%s\t%s", v, k)
 	}
 
 	return m, nil
@@ -347,7 +347,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 // AddAuthorizedFingerprint appends the given fingerprint and alias to the
 // specified file such that LoadAuthorizedFingerprints() can understand.
 func AddAuthorizedFingerprint(path string, fingerprint *Fingerprint, alias string) error {
-	rlog.Debugf("Trying to add fingerprint %s as %s\n", fingerprint.String(), alias)
+	rlog.Debugf("Trying to add fingerprint %s as %s", fingerprint.String(), alias)
 
 	// Create conf folder if not existing
 	// Load file, if it is already there.
