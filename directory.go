@@ -654,5 +654,5 @@ func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
 		return addrs, nil
 	}
 
-	return nil, fmt.Errorf("fingerprint %s not present", fingerprint.String())
+	return nil, fmt.Errorf("could not discover '%s'", fingerprint.String())
 }
