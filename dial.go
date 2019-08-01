@@ -6,7 +6,6 @@ import (
 )
 
 type Dialer interface {
-	Resolver() *Resolver
 	DialTimeout(network, target string, timeout time.Duration) (Conn, error)
 }
 

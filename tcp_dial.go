@@ -9,10 +9,10 @@ import (
 )
 
 type tcpDialer struct {
-	dialer   *net.Dialer
-	Config   *Config
-	resolver Resolver
-	visited  []string
+	dialer    *net.Dialer
+	Config    *Config
+	directory DirectoryClient
+	visited   []string
 }
 
 // TODO: Add a resolver argument
@@ -30,9 +30,9 @@ func newTCPDialer(config Config) Dialer {
 	dirClient := NewDirectoryClient(DefaultResolveDomain, &config.TLSConfig.Certificates[0], nil)
 
 	return &tcpDialer{
-		dialer:   dialer,
-		Config:   &config,
-		resolver: NewResolver(&dirClient, ResolveFlagUseHTTPs),
+		dialer:    dialer,
+		Config:    &config,
+		directory: dirClient,
 	}
 }
 
@@ -47,7 +47,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		return nil, err
 	}
 
-	addrs, err := d.resolver.LookupAddresses(fingerprint)
+	addrs, err := d.directory.DiscoverAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +97,4 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	}
 
 	return nil, fmt.Errorf("could not connect to: %s", target)
-}
-
-func (d *tcpDialer) Resolver() *Resolver {
-	return &d.resolver
 }

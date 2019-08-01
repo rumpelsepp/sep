@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"git.sr.ht/~rumpelsepp/mnd"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -197,6 +196,12 @@ func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
 	return response, nil
 }
 
+const (
+	DiscoverFlagUseSystemDNS = 1 << iota
+	DiscoverFlagUseHTTPs
+	DiscoverFlagUseMND
+)
+
 type DirectoryClient struct {
 	endpoint      string
 	httpClient    *http.Client
@@ -206,12 +211,6 @@ type DirectoryClient struct {
 	// We need this for MND Discovery
 	// MNDDiscover   *mnd.Node
 }
-
-const (
-	DiscoverFlagUseSystemDNS = 1 << iota
-	DiscoverFlagUseHTTPs
-	DiscoverFlagUseMND
-)
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 // TODO Add more details about those defaults, e.g. DiscoverFlags
@@ -504,155 +503,4 @@ func (a *DirectoryClient) DiscoverRelays(fingerprint *Fingerprint) ([]string, er
 	}
 
 	return payload.Relays, nil
-}
-
-// For now I keep this resolver stuff for compability purposes. Once we fully
-// migrated over to DirectoryClient.Discover(), remove all of this.
-const (
-	ResolveFlagUseSystemDNS = 1 << iota
-	ResolveFlagUseHTTPs
-	ResolveFlagUseMND
-)
-
-type Resolver struct {
-	Flags           int
-	DirectoryClient *DirectoryClient
-	MNDResolver     *mnd.Node
-}
-
-func NewResolver(dirClient *DirectoryClient, flags int) Resolver {
-	var mndClient *mnd.Node
-
-	if dirClient != nil && flags&ResolveFlagUseMND > 0 {
-		// TODO: create v4 and v6 resolvers
-		mndClient = &mnd.Node{
-			Address:    "0.0.0.0:7868",
-			Group:      MNDIPv4MulticastAddress,
-			Port:       MNDPort,
-			PrivateKey: dirClient.keypair.PrivateKey,
-		}
-	}
-
-	return Resolver{
-		Flags:           flags,
-		DirectoryClient: dirClient,
-		MNDResolver:     mndClient,
-	}
-}
-
-// This function was cloned to DirectoryClient.DiscoverViaDNS()
-func dnsLookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	var payload DirectoryRecordSet
-
-	txts, err := net.LookupTXT(fingerprint.FQDN())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, txt := range txts {
-		parts := strings.SplitN(txt, "=", 2)
-		if len(parts) != 2 {
-			logger.Warningf("%s entry is corrupt", txt)
-			continue
-		}
-
-		switch parts[0] {
-		case "address":
-			parsedURL, err := url.Parse(parts[1])
-			if err != nil {
-				logger.Warningf("%s: %s", txt, err)
-				continue
-			}
-
-			payload.Addresses = append(payload.Addresses, parsedURL.String())
-
-		case "signature":
-			payload.Signature = parts[1]
-
-		case "pubkey":
-			payload.PubKey = parts[1]
-
-		case "ttl":
-			tmp, err := strconv.ParseUint(parts[1], 10, 64)
-			if err != nil {
-				return nil, err
-			}
-
-			payload.TTL = int(tmp)
-
-		case "timestamp":
-			payload.Timestamp = parts[1]
-		}
-	}
-
-	ok, err := payload.CheckSignature(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return &payload, nil
-}
-
-// This function was cloned to DirectoryClient.Discover()
-func (r *Resolver) Lookup(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	var (
-		err     error
-		payload *DirectoryRecordSet
-	)
-
-	if (r.Flags & ResolveFlagUseSystemDNS) != 0 {
-		payload, err := dnsLookup(fingerprint)
-		if err == nil {
-			return payload, nil
-		}
-	}
-
-	if (r.Flags & ResolveFlagUseHTTPs) != 0 {
-		payload, err = r.DirectoryClient.DiscoverViaHTTP(fingerprint)
-		if err == nil {
-			return payload, nil
-		}
-	}
-
-	return nil, fmt.Errorf("lookup %s: not found", fingerprint.String())
-}
-
-// This function was cloned partly to DirectoryClient.Discover() and partly to
-// DirectoryClient.DiscoverAddresses()
-func (r *Resolver) LookupAddresses(fingerprint *Fingerprint) ([]string, error) {
-	var (
-		addrs []string
-		err   error
-		found = false
-	)
-
-	// These schemes are tried in this order:
-	//  - MND     : Search in local network with MND protocol
-	//  - ni-URI  : Check TXT records and validate signature
-	//  - HTTP    : Fetch JSON and validate signature
-	if (r.Flags&ResolveFlagUseMND) != 0 && r.MNDResolver != nil {
-		addrs, err = r.MNDResolver.Request(fingerprint.URL)
-		if err == nil {
-			found = true
-		}
-	}
-
-	if !found {
-		payload, err := r.Lookup(fingerprint)
-		if err == nil {
-			found = true
-			addrs = payload.Addresses[:]
-		}
-	}
-
-	if found {
-		sortByRFC6724(addrs)
-		return addrs, nil
-	}
-
-	return nil, fmt.Errorf("could not discover '%s'", fingerprint.String())
 }
