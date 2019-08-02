@@ -213,10 +213,16 @@ const (
 	DiscoverFlagUseMND
 )
 
+const (
+	AnnounceFlagUseHTTPS = 1 << iota
+	AnnounceFlagUseMND
+)
+
 type DirectoryClient struct {
 	AnnounceEndpoint string
 	DiscoverFlags    int
 	DoHEndpoint      string
+	AnnounceFlags    int
 
 	httpClient *http.Client
 	keypair    *tls.Certificate
@@ -242,12 +248,40 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 		httpClient:       client,
 		options:          options,
 		DiscoverFlags:    DiscoverFlagUseDoH | DiscoverFlagUseHTTPs,
+		AnnounceFlags:    AnnounceFlagUseHTTPS,
 	}
 }
 
-// Announce signs the record set and sends it to the directory in a json-encoded
-// HTTP PUT request.
+// Announce serves as universal function call for announcing a given record set.
+// Depending on the AnnounceFlags set different schemes are executed simultaneously.
+// The record set is signed prior to sending.
+//  - HTTPs : via HTTP PUT and validate signature
+//  - MND   : Discover in local network with MND protocol
 func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryResponse, error) {
+	if a.AnnounceFlags == 0 {
+		return nil, fmt.Errorf("no AnnounceFlags set")
+	}
+
+	// MND is not implemented by now
+
+	// This just reimplements the old .Announce functionality for now.
+	var (
+		responseHTTPS *DirectoryResponse
+		err           error
+	)
+	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
+		responseHTTPS, err = a.AnnounceViaHTTPS(payload)
+		if err != nil {
+			logger.Warningf("announcing via HTTPs failed: %s", err)
+		}
+	}
+
+	return responseHTTPS, err
+}
+
+// AnnounceViaHTTPS signs the record set and sends it to the directory in a
+// json-encoded HTTP PUT request.
+func (a *DirectoryClient) AnnounceViaHTTPS(payload DirectoryRecordSet) (*DirectoryResponse, error) {
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return nil, err
