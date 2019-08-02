@@ -207,7 +207,7 @@ func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
 }
 
 const (
-	DiscoverFlagUseSystemDNS = 1 << iota
+	DiscoverFlagUseDNS = 1 << iota
 	DiscoverFlagUseDoH
 	DiscoverFlagUseHTTPs
 	DiscoverFlagUseMND
@@ -358,13 +358,13 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) (*DirectoryRespons
 	return a.Announce(payload)
 }
 
-// Discover serves universal function call for discovering the record set of a
-// fingerprint. Depending on the DiscoverFlags set different schemes are tried,
-// but always in this order:
-//  - MND     : Discover in local network with MND protocol
-//  - DoH     : Discover via the DoH JSON flavor using HTTP GET.
-//  - ni-URI  : Discover via DNS TXT records and validate signature
-//  - HTTP    : Discover via HTTP GET and validate signature
+// Discover serves as universal function call for discovering the record set of a
+// fingerprint. Only record sets with valid signatures are returned. Depending
+// on the DiscoverFlags set different schemes are tried, but always in this order:
+//  - MND   : Discover in local network with MND protocol
+//  - DoH   : Discover via the DoH JSON flavor using HTTP GET.
+//  - DNS   : Discover via DNS TXT records and validate signature
+//  - HTTPS : Discover via HTTPS GET and validate signature
 func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	if a.DiscoverFlags == 0 {
 		return nil, fmt.Errorf("no DiscoverFlags present")
@@ -391,7 +391,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		}
 	}
 
-	if (a.DiscoverFlags & DiscoverFlagUseSystemDNS) != 0 {
+	if (a.DiscoverFlags & DiscoverFlagUseDNS) != 0 {
 		payload, err := a.discoverViaDNS(fingerprint)
 		if err == nil {
 			logger.Debugf("got RecordSet via DNS: %v", payload)
