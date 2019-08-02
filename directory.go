@@ -322,7 +322,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	// }
 
 	if (a.DiscoverFlags & DiscoverFlagUseDoH) != 0 {
-		payload, err := a.DiscoverViaDoH(fingerprint)
+		payload, err := a.discoverViaDoH(fingerprint)
 		if err == nil {
 			logger.Debugf("got RecordSet via DoH: %v", payload)
 			return payload, nil
@@ -332,7 +332,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseSystemDNS) != 0 {
-		payload, err := a.DiscoverViaDNS(fingerprint)
+		payload, err := a.discoverViaDNS(fingerprint)
 		if err == nil {
 			logger.Debugf("got RecordSet via DNS: %v", payload)
 			return payload, nil
@@ -343,7 +343,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseHTTPs) != 0 {
-		payload, err := a.DiscoverViaHTTP(fingerprint)
+		payload, err := a.discoverViaHTTP(fingerprint)
 		if err == nil {
 			logger.Debugf("got RecordSet via HTTP: %v", payload)
 			return payload, nil
@@ -426,7 +426,7 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 	return &payload, nil
 }
 
-func (a *DirectoryClient) DiscoverViaDoH(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+func (a *DirectoryClient) discoverViaDoH(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	u := fmt.Sprintf(a.DoHEndpoint, fingerprint.FQDN())
 
 	req, err := http.NewRequest("GET", u, nil)
@@ -485,7 +485,7 @@ func (a *DirectoryClient) DiscoverViaDoH(fingerprint *Fingerprint) (*DirectoryRe
 
 // DiscoverViaDNS queries a record set of the given fingerprint from the directory
 // via DNS TXT records and verifies its signature.
-func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+func (a *DirectoryClient) discoverViaDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	txts, err := net.LookupTXT(fingerprint.FQDN())
 	if err != nil {
 		return nil, err
@@ -510,7 +510,7 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 
 // DiscoverViaHTTP queries a record set of the given fingerprint from the directory
 // via HTTP GET and verifies its signature.
-func (a *DirectoryClient) DiscoverViaHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+func (a *DirectoryClient) discoverViaHTTP(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
 	if err != nil {
 		return nil, err
@@ -569,7 +569,7 @@ func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string,
 // DiscoverBlob is a helper function that wraps the more generic DiscoverViaHTTP().
 func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error) {
 	// We want this to be specifically via HTTP for size reasons
-	payload, err := a.DiscoverViaHTTP(fingerprint)
+	payload, err := a.discoverViaHTTP(fingerprint)
 	if err != nil {
 		return nil, err
 	}
