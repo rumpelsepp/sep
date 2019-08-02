@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -42,7 +43,7 @@ func init() {
 func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 	var (
 		err          error
-		keyLogWriter *os.File
+		keyLogWriter io.Writer
 	)
 
 	if sslKeyLogFile, ok := os.LookupEnv("SSLKEYLOGFILE"); ok {
