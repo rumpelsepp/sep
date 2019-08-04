@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -33,12 +34,12 @@ type DirectoryRecordSet struct {
 	Addresses  []string          `json:"addresses,omitempty"`
 	Delegators []string          `json:"delegator,omitempty"`
 	Relays     []string          `json:"relay,omitempty"`
-	Blob       string            `json:"blob,omitempty"`
-	PubKey     string            `json:"pubkey"`
-	TTL        int               `json:"ttl"`
-	Timestamp  string            `json:"timestamp"`
-	Signature  string            `json:"signature"`
-	Version    int               `json:"version"`
+	Blob       []byte            `json:"blob,omitempty"`
+	PubKey     []byte            `json:"pubkey"`
+	TTL        uint              `json:"ttl"`
+	Timestamp  time.Time         `json:"timestamp"`
+	Signature  []byte            `json:"signature"`
+	Version    uint              `json:"version"`
 	Options    *DirectoryOptions `json:"options,omitempty"`
 }
 
@@ -46,37 +47,36 @@ type ecdsaSignature struct {
 	R, S *big.Int
 }
 
-func concat(date []string) string {
-	var res string
-	for _, subStr := range date {
-		res += subStr
-	}
-	return res
-}
-
-func (a *DirectoryRecordSet) digest() []byte {
-	var res string
+func (a *DirectoryRecordSet) digest() ([]byte, error) {
+	var res []byte
 
 	if len(a.Addresses) > 0 {
-		res += concat(a.Addresses)
+		res = append(res, []byte(strings.Join(a.Addresses, ""))...)
 	}
 	if len(a.Delegators) > 0 {
-		res += concat(a.Delegators)
+		res = append(res, []byte(strings.Join(a.Delegators, ""))...)
 	}
 	if len(a.Relays) > 0 {
-		res += concat(a.Relays)
+		res = append(res, []byte(strings.Join(a.Relays, ""))...)
 	}
-	if a.Blob != "" {
-		res += a.Blob
+	if len(a.Blob) != 0 {
+		res = append(res, a.Blob...)
 	}
 
-	res += string(a.TTL)
-	res += a.Timestamp
-	res += a.PubKey
+	ttlBin := make([]byte, 8)
+	binary.LittleEndian.PutUint64(ttlBin, uint64(a.TTL))
+	res = append(res, ttlBin...)
 
+	timeBin, err := a.Timestamp.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	res = append(res, timeBin...)
+	res = append(res, a.PubKey...)
 	digest := sha3.Sum256([]byte(res))
 
-	return digest[:]
+	return digest[:], nil
 }
 
 // Sign appends a base64-encoded signature, current timestamp and public key to
@@ -85,37 +85,32 @@ func (a *DirectoryRecordSet) digest() []byte {
 //
 //  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
 func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
+	// FIXME: Do not panic!!!
 	var (
-		// FIXME: Do not panic!!!
-		now     = time.Now()
+		err     error
 		privKey = privateKey.(*ecdsa.PrivateKey)
 	)
 
-	textTimestamp, err := now.MarshalText()
+	a.Timestamp = time.Now()
+	a.PubKey, err = x509.MarshalPKIXPublicKey(privKey.Public())
 	if err != nil {
 		return err
 	}
 
-	a.Timestamp = string(textTimestamp)
-
-	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
+	digest, err := a.digest()
 	if err != nil {
 		return err
 	}
 
-	a.PubKey = base64.StdEncoding.EncodeToString(derPubKey)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, a.digest())
+	r, s, err := ecdsa.Sign(rand.Reader, privKey, digest)
 	if err != nil {
 		return err
 	}
 
-	signature, err := asn1.Marshal(ecdsaSignature{r, s})
+	a.Signature, err = asn1.Marshal(ecdsaSignature{r, s})
 	if err != nil {
 		return err
 	}
-
-	a.Signature = base64.StdEncoding.EncodeToString(signature)
 
 	return nil
 }
@@ -124,46 +119,35 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 // by validating the signature of the payload and checking whether the key used
 // for signing matches the given fingerprint.
 func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
-	var timestamp time.Time
-	if err := timestamp.UnmarshalText([]byte(a.Timestamp)); err != nil {
-		return false, err
-	}
-
-	rawPubKey, err := base64.StdEncoding.DecodeString(a.PubKey)
-	if err != nil {
-		return false, err
-	}
-
 	// Verify hash of public key against fingerprint
-	digest := sha3.Sum256(rawPubKey)
-	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
+	digestKey := sha3.Sum256(a.PubKey)
+	if !bytes.Equal(digestKey[:], fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
 
-	rawSignature, err := base64.StdEncoding.DecodeString(a.Signature)
-	if err != nil {
-		return false, err
-	}
-
 	var signature ecdsaSignature
-	_, err = asn1.Unmarshal(rawSignature, &signature)
+	_, err := asn1.Unmarshal(a.Signature, &signature)
 	if err != nil {
 		return false, err
 	}
 
-	remotePK, err := x509.ParsePKIXPublicKey(rawPubKey)
+	remotePK, err := x509.ParsePKIXPublicKey(a.PubKey)
 	if err != nil {
 		return false, err
 	}
 
 	// FIXME: don't panic
 	remotePubKey := remotePK.(*ecdsa.PublicKey)
+	digest, err := a.digest()
+	if err != nil {
+		return false, err
+	}
 
-	if ok := ecdsa.Verify(remotePubKey, a.digest(), signature.R, signature.S); !ok {
+	if ok := ecdsa.Verify(remotePubKey, digest, signature.R, signature.S); !ok {
 		return false, nil
 	}
 
-	if dur := time.Since(timestamp); dur > time.Duration(a.TTL)*time.Second {
+	if dur := time.Since(a.Timestamp); dur > time.Duration(a.TTL)*time.Second {
 		return false, fmt.Errorf("recordSet expired")
 	}
 
@@ -287,7 +271,7 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 }
 
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
-func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl int) (*DirectoryResponse, error) {
+func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) (*DirectoryResponse, error) {
 	payload := DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
@@ -298,11 +282,10 @@ func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl int) (*Direc
 }
 
 // AnnounceBlob is a helper function that wraps the more generic Announce()
-func (a *DirectoryClient) AnnounceBlob(data []byte, ttl int) (*DirectoryResponse, error) {
+func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) (*DirectoryResponse, error) {
 	var (
-		b64Data = base64.StdEncoding.EncodeToString(data)
 		payload = DirectoryRecordSet{
-			Blob:    b64Data,
+			Blob:    data,
 			TTL:     ttl,
 			Options: a.options,
 		}
@@ -361,25 +344,29 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 	for _, txt := range txts {
 		parts := strings.SplitN(txt, "=", 2)
 		if len(parts) != 2 {
-			logger.Warningf("%s entry is corrupt", txt)
-			continue
+			return nil, fmt.Errorf("%s entry is corrupt", txt)
 		}
 
 		switch parts[0] {
 		case "address":
 			parsedURL, err := url.Parse(parts[1])
 			if err != nil {
-				logger.Warningf("%s: %s", txt, err)
-				continue
+				return nil, err
 			}
 
 			payload.Addresses = append(payload.Addresses, parsedURL.String())
 
 		case "signature":
-			payload.Signature = parts[1]
+			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
+			if err != nil {
+				return nil, err
+			}
 
 		case "pubkey":
-			payload.PubKey = parts[1]
+			payload.PubKey, err = base64.StdEncoding.DecodeString(parts[1])
+			if err != nil {
+				return nil, err
+			}
 
 		case "ttl":
 			tmp, err := strconv.ParseUint(parts[1], 10, 64)
@@ -387,10 +374,14 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 				return nil, err
 			}
 
-			payload.TTL = int(tmp)
+			payload.TTL = uint(tmp)
 
 		case "timestamp":
-			payload.Timestamp = parts[1]
+			var tmp time.Time
+			if err := tmp.UnmarshalText([]byte(parts[1])); err != nil {
+				return nil, err
+			}
+			payload.Timestamp = tmp
 		}
 	}
 
@@ -472,16 +463,11 @@ func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error)
 		return nil, err
 	}
 
-	if payload.Blob == "" {
+	if len(payload.Blob) == 0 {
 		return nil, fmt.Errorf("no blob available for: %s", fingerprint.String())
 	}
 
-	blob, err := base64.StdEncoding.DecodeString(payload.Blob)
-	if err != nil {
-		return nil, err
-	}
-
-	return blob, nil
+	return payload.Blob, nil
 }
 
 // DiscoverDelegators is a helper function that wraps the more generic
