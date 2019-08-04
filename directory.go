@@ -305,6 +305,8 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		return nil, fmt.Errorf("no DiscoverFlags present")
 	}
 
+	logger.Debugf("discovering '%s'", fingerprint.String())
+
 	// MND is not implemented by now
 	//
 	// if (r.Flags&DiscoverFlagUseMND) != 0 && r.MNDResolver != nil {
@@ -319,6 +321,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		if err == nil {
 			return payload, nil
 		}
+		logger.Debugf("discover via system dns failed: %s", err)
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseHTTPs) != 0 {
@@ -326,6 +329,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		if err == nil {
 			return payload, nil
 		}
+		logger.Debugf("discover via http failed: %s", err)
 	}
 
 	return nil, fmt.Errorf("fingerprint '%s' not found", fingerprint.String())
@@ -373,7 +377,6 @@ func (a *DirectoryClient) DiscoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 			if err != nil {
 				return nil, err
 			}
-
 			payload.TTL = uint(tmp)
 
 		case "timestamp":
