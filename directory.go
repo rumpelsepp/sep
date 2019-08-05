@@ -39,7 +39,7 @@ type DirectoryRecordSet struct {
 	Blob       []byte            `json:"blob,omitempty"`
 	PubKey     []byte            `json:"pubkey"`
 	TTL        uint              `json:"ttl"`
-	Timestamp  time.Time         `json:"timestamp"`
+	Timestamp  []byte            `json:"timestamp"`
 	Signature  []byte            `json:"signature"`
 	Version    uint              `json:"version"`
 	Options    *DirectoryOptions `json:"options,omitempty"`
@@ -73,12 +73,7 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 	binary.LittleEndian.PutUint64(ttlBin, uint64(a.TTL))
 	res = append(res, ttlBin...)
 
-	timeBin, err := a.Timestamp.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	res = append(res, timeBin...)
+	res = append(res, a.Timestamp...)
 	res = append(res, a.PubKey...)
 	digest := sha3.Sum256([]byte(res))
 
@@ -97,7 +92,11 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 		privKey = privateKey.(*ecdsa.PrivateKey)
 	)
 
-	a.Timestamp = time.Now()
+	a.Timestamp, err = time.Now().MarshalBinary()
+	if err != nil {
+		return err
+	}
+
 	a.PubKey, err = x509.MarshalPKIXPublicKey(privKey.Public())
 	if err != nil {
 		return err
@@ -153,7 +152,11 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 		return false, nil
 	}
 
-	if dur := time.Since(a.Timestamp); dur > time.Duration(a.TTL)*time.Second {
+	var tmp time.Time
+	if err := tmp.UnmarshalBinary(a.Timestamp); err != nil {
+		return false, err
+	}
+	if dur := time.Since(tmp); dur > time.Duration(a.TTL)*time.Second {
 		return false, fmt.Errorf("recordSet expired")
 	}
 
@@ -492,7 +495,10 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 			if err := tmp.UnmarshalText([]byte(parts[1])); err != nil {
 				return nil, err
 			}
-			payload.Timestamp = tmp
+			payload.Timestamp, err = tmp.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
