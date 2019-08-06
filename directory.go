@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"golang.org/x/crypto/sha3"
@@ -152,6 +153,26 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 	}
 
 	return true, nil
+}
+
+// Pretty generates a nice, human readable representation of the
+// RecordSet. Is useful for debugging,
+func (a *DirectoryRecordSet) Pretty() string {
+	tpl := `Addresses : {{range $i, $v := .Addresses}}{{$v}} {{end}}
+Delegators: {{range $i, $v := .Delegators}}{{$v}}{{end}}
+Relays    : {{range $i, $v := .Relays}}{{$v}}{{end}}
+Blob      : {{if .Blob}}{{.Blob | printf "%.33x…"}}{{end}}
+Timestamp : {{.Timestamp}}
+TTL       : {{.TTL}}
+PubKey    : {{.PubKey | printf "%.33x…"}}
+Signature : {{.Signature | printf "%.33x…"}}
+`
+	var builder strings.Builder
+	t := template.Must(template.New("pretty").Parse(tpl))
+	if err := t.Execute(&builder, a); err != nil {
+		panic(err)
+	}
+	return builder.String()
 }
 
 type DirectoryResponse struct {
