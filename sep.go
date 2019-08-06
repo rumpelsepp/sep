@@ -22,13 +22,19 @@ const (
 	DefaultDoHURI           = "https://cloudflare-dns.com/dns-query?name=%s&type=TXT"
 	AlpSEP                  = "SEP/0"
 	AlpSEPRelay             = "SEP-RELAY/0"
+
+	// DefaultMNDDiscoverPort is where packets are sent to during MND Discovery
+	DefaultMNDDiscoverPort = "7868"
+	// DefaultMNDResponsePort is where a response is expected during MND Discovery
+	DefaultMNDResponsePort = "7869"
 )
 
-var (
-	MNDIPv4MulticastAddress = net.ParseIP("224.0.0.251")
-	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
-	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
-)
+// At the moment, those variables are not needed for broadcast discovery!
+// var (
+// 	MNDIPv4MulticastAddress = net.ParseIP("224.0.0.251")
+// 	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
+// 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
+// )
 
 var logger = rlog.NewLogger()
 

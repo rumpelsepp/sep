@@ -21,6 +21,96 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
+func mndBroadcastRequest(payload *DirectoryRecordSet) {
+	brdAddresses, err := gatherAllBroadcastAddresses()
+	if err != nil {
+		logger.Warningf("gathering broadcast addresses failed: %s", err)
+		return
+	}
+	logger.Debugf("Sending MND discover request to these broadcast addresses: %+v", brdAddresses)
+
+	for _, brdAddress := range brdAddresses {
+		brd, err := net.ResolveUDPAddr("udp", net.JoinHostPort(brdAddress, DefaultMNDDiscoverPort))
+		if err != nil {
+			logger.Warningf("%v", err)
+			continue
+		}
+
+		conn, err := net.DialUDP("udp", nil, brd)
+		if err != nil {
+			logger.Warningf("%v", err)
+			continue
+		}
+
+		encoder := cbor.NewEncoder(conn, cbor.EncOptions{Canonical: true})
+		if err := encoder.Encode(payload); err != nil {
+			logger.Warningf("%v", err)
+			continue
+		}
+
+		if err := conn.Close(); err != nil {
+			logger.Warningf("%v", err)
+			continue
+		}
+	}
+}
+
+func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) (*DirectoryRecordSet, error) {
+	addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort("0.0.0.0", DefaultMNDResponsePort))
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	response := &DirectoryRecordSet{}
+	decoder := cbor.NewDecoder(conn)
+	gotResp := make(chan bool)
+
+	decoding := true
+	go func() {
+		for decoding {
+			if err := decoder.Decode(response); err != nil {
+				logger.Debugf("error while decoding: %s", err)
+				continue
+			}
+
+			respFp, err := FingerprintFromPublicKey(response.PubKey, DefaultFingerprintSuite, "")
+			if err != nil {
+				logger.Debugf("got response with non-parsable public key: %s", err)
+				continue
+			}
+			if !FingerprintIsEqual(respFp, targetFp) {
+				logger.Debugf("got response from '%s', expecting '%s'", respFp, targetFp)
+				continue
+			}
+
+			logger.Debugf("got valid response")
+			gotResp <- true
+			return
+		}
+	}()
+
+	timeout := time.After(timeoutDuration)
+	for {
+		select {
+		case <-timeout:
+			logger.Debug("MND discovery timed out")
+			decoding = false
+			return nil, fmt.Errorf("MND discovery timeout")
+		case <-gotResp:
+			logger.Debug("MND discovery was successful")
+			return response, nil
+		}
+	}
+}
+
+// From here it's untouched legacy stuff
+
 const (
 	FlagQuery      = iota // Normal Query
 	FlagQueryAll          // All Nodes should answer.

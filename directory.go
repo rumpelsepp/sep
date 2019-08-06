@@ -379,14 +379,15 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 
 	logger.Debugf("discovering '%s'", fingerprint.String())
 
-	// MND is not implemented by now
-	//
-	// if (r.Flags&DiscoverFlagUseMND) != 0 && r.MNDResolver != nil {
-	// 	addrs, err = r.MNDResolver.Request(fingerprint.URL)
-	// 	if err == nil {
-	// 		found = true
-	// 	}
-	// }
+	if (a.DiscoverFlags & DiscoverFlagUseMND) != 0 {
+		payload, err := a.discoverViaMND(fingerprint)
+		if err == nil {
+			// FIXME: This debug message is fugly!
+			logger.Debugf("got RecordSet via MND: %v", payload)
+			return payload, nil
+		}
+		logger.Debugf("discover via MND failed: %s", err)
+	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseDoH) != 0 {
 		payload, err := a.discoverViaDoH(fingerprint)
@@ -629,6 +630,41 @@ func (a *DirectoryClient) discoverViaHTTPS(fingerprint *Fingerprint) (*Directory
 	}
 
 	return &payload, nil
+}
+
+// DiscoverViaMND sends a discovery packet via udp to a broadcast address and
+// listens for the response of the queried node. If a response is received, the
+// signature of the record set is verified.
+func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
+	logger.Debugf("Discovering via MND: %s", fingerprint.String())
+
+	// Define request payload with target FP as bytes in blob entry
+	req := &DirectoryRecordSet{
+		TTL:  5,
+		Blob: fingerprint.Bytes(),
+	}
+
+	if err := req.Sign(a.keypair.PrivateKey); err != nil {
+		return nil, err
+	}
+
+	go mndBroadcastRequest(req)
+
+	resp, err := mndListenForResponse(fingerprint, 5*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	signatureOk, err := resp.CheckSignature(fingerprint)
+	if err != nil {
+		logger.Debugf("signature check failed: %s", err)
+		return nil, err
+	}
+	if !signatureOk {
+		logger.Debug("response has invalid signature")
+		return nil, fmt.Errorf("signature check failed")
+	}
+
+	return resp, nil
 }
 
 // DiscoverAddresses is a helper function that wraps the more generic
