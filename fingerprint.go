@@ -86,6 +86,10 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
 	var digest []byte
 
+	if _, err := x509.ParsePKIXPublicKey(pubKey); err != nil {
+		return nil, fmt.Errorf("not a valid der-encoded PublicKey")
+	}
+
 	switch suite {
 	case "sha-256":
 		d := sha256.Sum256(pubKey)
