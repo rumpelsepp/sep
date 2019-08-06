@@ -391,7 +391,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		payload, err := a.discoverViaMND(fingerprint)
 		if err == nil {
 			// FIXME: This debug message is fugly!
-			logger.Debugf("got RecordSet via MND: %v", payload)
+			logger.Debugf("got RecordSet via MND: %s", payload.Pretty())
 			return payload, nil
 		}
 		logger.Debugf("discover via MND failed: %s", err)
@@ -400,7 +400,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	if (a.DiscoverFlags & DiscoverFlagUseDoH) != 0 {
 		payload, err := a.discoverViaDoH(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via DoH: %v", payload)
+			logger.Debugf("got RecordSet via DoH: %s", payload.Pretty())
 			return payload, nil
 		}
 		logger.Debugf("discover via DoH failed: %s", err)
@@ -409,7 +409,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	if (a.DiscoverFlags & DiscoverFlagUseDNS) != 0 {
 		payload, err := a.discoverViaDNS(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via DNS: %v", payload)
+			logger.Debugf("got RecordSet via DNS: %s", payload.Pretty())
 			return payload, nil
 		}
 		logger.Debugf("discover via system dns failed: %s", err)
@@ -418,7 +418,7 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 	if (a.DiscoverFlags & DiscoverFlagUseHTTPS) != 0 {
 		payload, err := a.discoverViaHTTPS(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via HTTP: %v", payload)
+			logger.Debugf("got RecordSet via HTTP: %s", payload.Pretty())
 			return payload, nil
 		}
 		logger.Debugf("discover via HTTPS failed: %s", err)
