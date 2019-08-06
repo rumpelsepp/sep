@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +50,10 @@ type ecdsaSignature struct {
 
 func (a *DirectoryRecordSet) digest() ([]byte, error) {
 	var res []byte
+
+	sort.Strings(a.Addresses)
+	sort.Strings(a.Delegators)
+	sort.Strings(a.Relays)
 
 	if len(a.Addresses) > 0 {
 		res = append(res, []byte(strings.Join(a.Addresses, ""))...)
@@ -392,8 +397,21 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 			if err != nil {
 				return nil, err
 			}
-
 			payload.Addresses = append(payload.Addresses, parsedURL.String())
+
+		case "relay":
+			parsedURL, err := url.Parse(parts[1])
+			if err != nil {
+				return nil, err
+			}
+			payload.Relays = append(payload.Relays, parsedURL.String())
+
+		case "delegator":
+			parsedURL, err := url.Parse(parts[1])
+			if err != nil {
+				return nil, err
+			}
+			payload.Delegators = append(payload.Delegators, parsedURL.String())
 
 		case "signature":
 			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
