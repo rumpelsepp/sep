@@ -287,7 +287,7 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryRespo
 		err           error
 	)
 	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
-		responseHTTPS, err = a.AnnounceViaHTTPS(payload)
+		responseHTTPS, err = a.announceViaHTTPS(payload)
 		if err != nil {
 			logger.Warningf("announce via HTTPS failed: %s", err)
 		} else {
@@ -298,9 +298,9 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryRespo
 	return responseHTTPS, err
 }
 
-// AnnounceViaHTTPS signs the record set and sends it to the directory in a
+// announceViaHTTPS signs the record set and sends it to the directory in a
 // json-encoded HTTP PUT request.
-func (a *DirectoryClient) AnnounceViaHTTPS(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
+func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return nil, err
