@@ -242,8 +242,8 @@ type DirectoryClient struct {
 	httpClient *http.Client
 	keypair    *tls.Certificate
 	options    *DirectoryOptions
-	// We need this for MND Discovery
-	// MNDDiscover   *mnd.Node
+
+	MNDListener *MNDListener
 }
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
@@ -266,6 +266,8 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 			DiscoverFlagUseHTTPS |
 			DiscoverFlagUseMND,
 		AnnounceFlags: AnnounceFlagUseHTTPS,
+
+		MNDListener: nil,
 	}
 }
 
@@ -279,7 +281,14 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryRespo
 		return nil, fmt.Errorf("no AnnounceFlags set")
 	}
 
-	// MND is not implemented by now
+	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
+		err := a.announceViaMND(payload)
+		if err != nil {
+			logger.Warningf("announce via MND failed: %s", err)
+		} else {
+			logger.Debugf("announce via MND successful")
+		}
+	}
 
 	// This just reimplements the old .Announce functionality for now.
 	var (
@@ -351,6 +360,16 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*Direct
 	}
 
 	return response, nil
+}
+
+// announceViaMND checks for an attached MND listener and if present updates the
+// RecordSet.
+func (a *DirectoryClient) announceViaMND(payload *DirectoryRecordSet) error {
+	if a.MNDListener == nil {
+		return fmt.Errorf("no attached MNDListener ")
+	}
+
+	return a.MNDListener.ServeRecordSet(payload)
 }
 
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
