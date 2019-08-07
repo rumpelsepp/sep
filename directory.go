@@ -570,7 +570,7 @@ func (a *DirectoryClient) discoverViaDoH(fingerprint *Fingerprint) (*DirectoryRe
 	return payload, nil
 }
 
-// DiscoverViaDNS queries a record set of the given fingerprint from the directory
+// discoverViaDNS queries a record set of the given fingerprint from the directory
 // via DNS TXT records and verifies its signature.
 func (a *DirectoryClient) discoverViaDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	txts, err := net.LookupTXT(fingerprint.FQDN())
@@ -640,7 +640,7 @@ func (a *DirectoryClient) discoverViaHTTPS(fingerprint *Fingerprint) (*Directory
 	return &payload, nil
 }
 
-// DiscoverViaMND sends a discovery packet via udp to a broadcast address and
+// discoverViaMND sends a discovery packet via udp to a broadcast address and
 // listens for the response of the queried node. If a response is received, the
 // signature of the record set is verified.
 func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
