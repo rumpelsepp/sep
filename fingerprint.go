@@ -2,8 +2,6 @@ package sep
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509"
 	"fmt"
 	"strings"
@@ -82,7 +80,7 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 // This is done by hashing the public key with the specified suite and inserting
 // the given authority.
 // These suites are supported:
-// 		sha-256, sha-384 ,sha-512 ,sha3-224 ,sha3-256 ,sha3-384 ,sha3-512
+// 		sha3-256 ,sha3-384 ,sha3-512
 func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
 	var digest []byte
 
@@ -91,18 +89,6 @@ func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fing
 	}
 
 	switch suite {
-	case "sha-256":
-		d := sha256.Sum256(pubKey)
-		digest = d[:]
-	case "sha-384":
-		d := sha512.Sum384(pubKey)
-		digest = d[:]
-	case "sha-512":
-		d := sha512.Sum512(pubKey)
-		digest = d[:]
-	case "sha3-224":
-		d := sha3.Sum224(pubKey)
-		digest = d[:]
 	case "sha3-256":
 		d := sha3.Sum256(pubKey)
 		digest = d[:]
