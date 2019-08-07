@@ -3,26 +3,22 @@ package sep
 import (
 	"bufio"
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
 	"golang.org/x/crypto/sha3"
-	"golang.org/x/xerrors"
 )
 
 // BidirectCopy is a helper which spawns two goroutines.
@@ -80,7 +76,7 @@ func BidirectCopy(left io.ReadWriteCloser, right io.ReadWriteCloser) (int, int, 
 // GenKeypairPEM generates a fresh new keypair and returns a
 // the certificate and the key is pem encoded bytes.
 func GenKeypairPEM() ([]byte, []byte, error) {
-	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate private key: %s", priv)
 	}
@@ -100,12 +96,12 @@ func GenKeypairPEM() ([]byte, []byte, error) {
 
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derCert})
 
-	b, err := x509.MarshalECPrivateKey(priv)
+	b, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: b})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "ED25519 PRIVATE KEY", Bytes: b})
 
 	return certPEM, keyPEM, nil
 }
@@ -177,45 +173,6 @@ func GenKeypairFile(keyPath, certPath string) error {
 	}
 
 	return nil
-}
-
-// TODO: Stolen from go 1.13. Remove once 1.13 is released.
-func UserConfigDir() (string, error) {
-	var dir string
-
-	switch runtime.GOOS {
-	case "windows":
-		dir = os.Getenv("AppData")
-		if dir == "" {
-			return "", errors.New("%AppData% is not defined")
-		}
-
-	case "darwin":
-		dir = os.Getenv("HOME")
-		if dir == "" {
-			return "", errors.New("$HOME is not defined")
-		}
-		dir += "/Library/Application Support"
-
-	case "plan9":
-		dir = os.Getenv("home")
-		if dir == "" {
-			return "", errors.New("$home is not defined")
-		}
-		dir += "/lib"
-
-	default: // Unix
-		dir = os.Getenv("XDG_CONFIG_HOME")
-		if dir == "" {
-			dir = os.Getenv("HOME")
-			if dir == "" {
-				return "", errors.New("neither $XDG_CONFIG_HOME nor $HOME are defined")
-			}
-			dir += "/.config"
-		}
-	}
-
-	return dir, nil
 }
 
 // GatherAllAddresses gathers the IP addresses of all local interfaces and
@@ -296,7 +253,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 	m := make(map[string]*Fingerprint)
 
 	if _, err := os.Stat(path); err != nil {
-		return nil, xerrors.Errorf("file does not exist: %w", err)
+		return nil, fmt.Errorf("file does not exist: %w", err)
 	}
 
 	file, err := os.OpenFile(path, os.O_RDONLY, 0600)
@@ -308,7 +265,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return nil, xerrors.Errorf("read error: %w", err)
+			return nil, fmt.Errorf("read error: %w", err)
 		}
 
 		// Ignore comments

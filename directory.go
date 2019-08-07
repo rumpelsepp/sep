@@ -3,17 +3,15 @@ package sep
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/rand"
+	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,6 +21,8 @@ import (
 	"text/template"
 	"time"
 )
+
+var ErrInvalidKey = errors.New("invalid key: only ed25519 keys are supported")
 
 type DirectoryOptions struct {
 	DNSTTL    int    `json:"dns_ttl"`
@@ -40,10 +40,6 @@ type DirectoryRecordSet struct {
 	Signature []byte            `json:"signature"`
 	Version   uint              `json:"version"`
 	Options   *DirectoryOptions `json:"options,omitempty"`
-}
-
-type ecdsaSignature struct {
-	R, S *big.Int
 }
 
 func (a *DirectoryRecordSet) digest() ([]byte, error) {
@@ -82,13 +78,14 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 //
 //  SHA3-256(Addresses | Delegators | Relays | Blob | TTL | Timestamp | PubKey)
 func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
-	// FIXME: Do not panic!!!
-	var (
-		err     error
-		privKey = privateKey.(*ecdsa.PrivateKey)
-	)
+	var err error
 
 	a.Timestamp = time.Now()
+
+	privKey, ok := privateKey.(ed25519.PrivateKey)
+	if !ok {
+		return ErrInvalidKey
+	}
 
 	a.PubKey, err = x509.MarshalPKIXPublicKey(privKey.Public())
 	if err != nil {
@@ -100,12 +97,7 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 		return err
 	}
 
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, digest)
-	if err != nil {
-		return err
-	}
-
-	a.Signature, err = asn1.Marshal(ecdsaSignature{r, s})
+	a.Signature = ed25519.Sign(privKey, digest)
 	if err != nil {
 		return err
 	}
@@ -123,25 +115,22 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 		return false, fmt.Errorf("unexpected public key")
 	}
 
-	var signature ecdsaSignature
-	_, err := asn1.Unmarshal(a.Signature, &signature)
-	if err != nil {
-		return false, err
-	}
-
 	remotePK, err := x509.ParsePKIXPublicKey(a.PubKey)
 	if err != nil {
 		return false, err
 	}
 
-	// FIXME: don't panic
-	remotePubKey := remotePK.(*ecdsa.PublicKey)
+	remotePubKey, ok := remotePK.(ed25519.PublicKey)
+	if !ok {
+		return false, ErrInvalidKey
+	}
+
 	digest, err := a.digest()
 	if err != nil {
 		return false, err
 	}
 
-	if ok := ecdsa.Verify(remotePubKey, digest, signature.R, signature.S); !ok {
+	if ok := ed25519.Verify(remotePubKey, digest, a.Signature); !ok {
 		return false, nil
 	}
 
