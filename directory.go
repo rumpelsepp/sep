@@ -286,7 +286,7 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 		responseHTTPS *DirectoryResponse
 		err           error
 	)
-	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
+	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
 		responseHTTPS, err = a.AnnounceViaHTTPS(payload)
 		if err != nil {
 			logger.Warningf("announcing via HTTPs failed: %s", err)
