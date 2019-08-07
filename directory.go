@@ -274,7 +274,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 // The record set is signed prior to sending.
 //  - HTTPs : via HTTP PUT and validate signature
 //  - MND   : Discover in local network with MND protocol
-func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryResponse, error) {
+func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
 	if a.AnnounceFlags == 0 {
 		return nil, fmt.Errorf("no AnnounceFlags set")
 	}
@@ -300,7 +300,7 @@ func (a *DirectoryClient) Announce(payload DirectoryRecordSet) (*DirectoryRespon
 
 // AnnounceViaHTTPS signs the record set and sends it to the directory in a
 // json-encoded HTTP PUT request.
-func (a *DirectoryClient) AnnounceViaHTTPS(payload DirectoryRecordSet) (*DirectoryResponse, error) {
+func (a *DirectoryClient) AnnounceViaHTTPS(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
 	err := payload.Sign(a.keypair.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func (a *DirectoryClient) AnnounceViaHTTPS(payload DirectoryRecordSet) (*Directo
 
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) (*DirectoryResponse, error) {
-	payload := DirectoryRecordSet{
+	payload := &DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
 		TTL:       ttl,
@@ -367,7 +367,7 @@ func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) (*Dire
 // AnnounceBlob is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) (*DirectoryResponse, error) {
 	var (
-		payload = DirectoryRecordSet{
+		payload = &DirectoryRecordSet{
 			Blob:    data,
 			TTL:     ttl,
 			Options: a.options,
