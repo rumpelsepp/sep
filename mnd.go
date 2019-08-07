@@ -18,7 +18,7 @@ func mndBroadcastRequest(payload *DirectoryRecordSet) {
 		logger.Warningf("gathering broadcast addresses failed: %s", err)
 		return
 	}
-	logger.Debugf("Sending MND discover request to these broadcast addresses: %+v", brdAddresses)
+	logger.Debugf("MND discover requests are sent to these broadcast addresses: %+v", brdAddresses)
 
 	for _, brdAddress := range brdAddresses {
 		brd, err := net.ResolveUDPAddr("udp", net.JoinHostPort(brdAddress, DefaultMNDDiscoverPort))
@@ -66,21 +66,21 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 	go func() {
 		for decoding {
 			if err := decoder.Decode(response); err != nil {
-				logger.Debugf("error while decoding: %s", err)
+				logger.Debugf("MND discovery encountered decoder error: %s", err)
 				continue
 			}
 
 			respFp, err := FingerprintFromPublicKey(response.PubKey, DefaultFingerprintSuite, "")
 			if err != nil {
-				logger.Debugf("got response with non-parsable public key: %s", err)
+				logger.Debugf("MND discovery got response with non-parsable public key: %s", err)
 				continue
 			}
 			if !FingerprintIsEqual(respFp, targetFp) {
-				logger.Debugf("got response from '%s', expecting '%s'", respFp, targetFp)
+				logger.Debugf("MND discovery got response from '%s', expecting '%s'", respFp, targetFp)
 				continue
 			}
 
-			logger.Debugf("got valid response")
+			logger.Debugf("MND discovery got valid response")
 			gotResp <- true
 			return
 		}
@@ -145,7 +145,6 @@ func (m *MNDListener) Close() {
 // The Listener terminates either when the Close() method is called or when the
 // RecordSet expires (defined by the TTL).
 func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
-	logger.Debug("Updating RecordSet of MND listener")
 	m.payload = recordSet
 	m.payload.Sign(m.privateKey)
 
@@ -164,7 +163,7 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 	m.timeout.Reset(time.Duration(m.payload.TTL) * time.Second)
 
 	if !m.running {
-		logger.Debug("Starting MND listener")
+		logger.Debugf("Starting MND listener on %s", m.listenAddr)
 		m.running = true
 		if err := m.listen(m.listenAddr); err != nil {
 			return err
@@ -217,10 +216,10 @@ func (m *MNDListener) listen(listenAddr string) error {
 		for m.running {
 			n, senderAddress, err := conn.ReadFromUDP(buff)
 			if err != nil {
-				logger.Debugf("error while decoding: %s", err)
+				logger.Debugf("MNDListener encountered decoder error: %s", err)
 				continue
 			}
-			logger.Debugf("Received packet from %s", senderAddress.String())
+			logger.Debugf("MNDListener received packet from %s", senderAddress.String())
 
 			// Decode packet
 			decoder := cbor.NewDecoder(bytes.NewReader(buff[:n]))
@@ -234,7 +233,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 				logger.Debugf("got request for '%s'; am '%s'", requestPayload.Blob, m.ownFp.Bytes())
 				continue
 			}
-			logger.Debugf("Request is addressed to me")
+			logger.Debugf("MND discover request is addressed to me")
 
 			// Validate packet signature
 			reqFp, err := FingerprintFromPublicKey(requestPayload.PubKey, DefaultFingerprintSuite, "")
@@ -251,7 +250,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 				logger.Infof("signature check failed: %s", err)
 				continue
 			}
-			logger.Debugf("Request has valid signature")
+			logger.Debugf("MND discover request has valid signature")
 
 			// Check whether sender is trusted
 			trusted := false
@@ -262,10 +261,10 @@ func (m *MNDListener) listen(listenAddr string) error {
 				}
 			}
 			if !trusted {
-				logger.Debug("Request comes from untrusted node")
+				logger.Debug("MND discover request comes from untrusted node")
 				continue
 			}
-			logger.Debug("Request comes from trusted node")
+			logger.Debug("MND discover request comes from trusted node")
 
 			// Prepare response address
 			if senderAddress.Port, err = strconv.Atoi(DefaultMNDResponsePort); err != nil {
@@ -290,7 +289,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 				logger.Warning(err)
 				continue
 			}
-			logger.Debugf("Sent response to %s", senderAddress.String())
+			logger.Debugf("MND discover response sent to %s", senderAddress.String())
 		}
 	}()
 
