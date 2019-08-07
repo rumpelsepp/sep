@@ -263,8 +263,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 		httpClient:       client,
 		options:          options,
 		DiscoverFlags: DiscoverFlagUseDoH |
-			DiscoverFlagUseHTTPS |
-			DiscoverFlagUseMND,
+			DiscoverFlagUseHTTPS,
 		AnnounceFlags: AnnounceFlagUseHTTPS,
 
 		MNDListener: nil,
