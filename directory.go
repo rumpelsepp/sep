@@ -262,8 +262,10 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 		keypair:          keypair,
 		httpClient:       client,
 		options:          options,
-		DiscoverFlags:    DiscoverFlagUseDoH | DiscoverFlagUseHTTPS,
-		AnnounceFlags:    AnnounceFlagUseHTTPS,
+		DiscoverFlags: DiscoverFlagUseDoH |
+			DiscoverFlagUseHTTPS |
+			DiscoverFlagUseMND,
+		AnnounceFlags: AnnounceFlagUseHTTPS,
 	}
 }
 
@@ -658,7 +660,7 @@ func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRe
 
 	go mndBroadcastRequest(req)
 
-	resp, err := mndListenForResponse(fingerprint, 5*time.Second)
+	resp, err := mndListenForResponse(fingerprint, 2*time.Second)
 	if err != nil {
 		return nil, err
 	}
