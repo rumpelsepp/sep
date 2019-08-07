@@ -104,6 +104,7 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 type MNDListener struct {
 	privateKey crypto.PrivateKey
 	payload    *DirectoryRecordSet
+	listenAddr string
 
 	running bool
 	close   chan bool
@@ -115,12 +116,13 @@ type MNDListener struct {
 
 // NewMNDListener serves as constructor of the MNDListener type which responds
 // to MNDDiscoverRequests.
-func NewMNDListener(ownFp *Fingerprint, privateKey crypto.PrivateKey, trustedFPs []*Fingerprint) MNDListener {
+func NewMNDListener(listenAddr string, ownFp *Fingerprint, privateKey crypto.PrivateKey, trustedFPs []*Fingerprint) *MNDListener {
 	timer := time.NewTimer(5 * time.Second)
 	timer.Stop()
-	return MNDListener{
+	return &MNDListener{
 		ownFp:      ownFp,
 		privateKey: privateKey,
+		listenAddr: listenAddr,
 		payload:    &DirectoryRecordSet{},
 		close:      make(chan bool, 1),
 		running:    false,
@@ -142,7 +144,7 @@ func (m *MNDListener) Close() {
 //
 // The Listener terminates either when the Close() method is called or when the
 // RecordSet expires (defined by the TTL).
-func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet, listenAddr string) error {
+func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 	logger.Debug("Updating RecordSet of MND listener")
 	m.payload = recordSet
 	m.payload.Sign(m.privateKey)
@@ -164,7 +166,7 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet, listenAddr s
 	if !m.running {
 		logger.Debug("Starting MND listener")
 		m.running = true
-		if err := m.listen(listenAddr); err != nil {
+		if err := m.listen(m.listenAddr); err != nil {
 			return err
 		}
 	}
