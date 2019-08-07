@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -286,6 +287,38 @@ func GatherAllAddresses(port string) ([]string, error) {
 		}
 	}
 
+	return addrs, nil
+}
+
+func gatherAllBroadcastAddresses() ([]string, error) {
+	addrs := []string{}
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, intf := range interfaces {
+		addresses, err := intf.Addrs()
+		if err != nil {
+			rlog.Warning(err)
+			continue
+		}
+
+		for _, addr := range addresses {
+			if n, ok := addr.(*net.IPNet); ok {
+				if n.IP.To4() == nil {
+					continue
+				}
+				if n.IP.IsGlobalUnicast() {
+					ip := n.IP.To4()
+					tmp := binary.BigEndian.Uint32(ip) | ^binary.BigEndian.Uint32(n.Mask)
+					binary.BigEndian.PutUint32(ip, tmp)
+					addrs = append(addrs, ip.String())
+				}
+			}
+		}
+	}
 	return addrs, nil
 }
 

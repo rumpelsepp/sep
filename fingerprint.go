@@ -2,8 +2,6 @@ package sep
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509"
 	"fmt"
 	"strings"
@@ -47,10 +45,8 @@ func FingerprintIsEqual(a, b *Fingerprint) bool {
 	return bytes.Equal(a.Bytes(), b.Bytes())
 }
 
-// FingerprintFromCertificate transforms a TLS certificate to a fingerprint.
-// This is done by hashing the public key with the specified suite.
-// These suites are supported:
-// 		sha-256, sha-384 ,sha-512 ,sha3-224 ,sha3-256 ,sha3-384 ,sha3-512
+// FingerprintFromCertificate transforms a TLS certificate to a DER-encoded public
+// key and calls FingerprintFromPublicKey.
 func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fingerprint, error) {
 	parsedCert, err := x509.ParseCertificate(cert)
 	if err != nil {
@@ -62,44 +58,7 @@ func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fing
 		return nil, err
 	}
 
-	var digest []byte
-
-	switch suite {
-	case "sha-256":
-		d := sha256.Sum256(pubkeyDer)
-		digest = d[:]
-	case "sha-384":
-		d := sha512.Sum384(pubkeyDer)
-		digest = d[:]
-	case "sha-512":
-		d := sha512.Sum512(pubkeyDer)
-		digest = d[:]
-	case "sha3-224":
-		d := sha3.Sum224(pubkeyDer)
-		digest = d[:]
-	case "sha3-256":
-		d := sha3.Sum256(pubkeyDer)
-		digest = d[:]
-	case "sha3-384":
-		d := sha3.Sum384(pubkeyDer)
-		digest = d[:]
-	case "sha3-512":
-		d := sha3.Sum512(pubkeyDer)
-		digest = d[:]
-	default:
-		return nil, ni.ErrSuiteNotSupported
-	}
-
-	if domain == "" {
-		domain = DefaultResolveDomain
-	}
-
-	niURL, err := ni.DigestToNI(digest[:], suite, domain)
-	if err != nil {
-		return nil, err
-	}
-
-	return FingerprintFromRawNI(niURL)
+	return FingerprintFromPublicKey(pubkeyDer, suite, domain)
 }
 
 // FingerprintFromNIString parses an NI string to type fingerprint.
@@ -115,6 +74,44 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 	}
 
 	return &Fingerprint{niURL}, nil
+}
+
+// FingerprintFromPublicKey transforms a DER-encoded public key to a fingerprint.
+// This is done by hashing the public key with the specified suite and inserting
+// the given authority.
+// These suites are supported:
+// 		sha3-256 ,sha3-384 ,sha3-512
+func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
+	var digest []byte
+
+	if _, err := x509.ParsePKIXPublicKey(pubKey); err != nil {
+		return nil, fmt.Errorf("not a valid der-encoded PublicKey")
+	}
+
+	switch suite {
+	case "sha3-256":
+		d := sha3.Sum256(pubKey)
+		digest = d[:]
+	case "sha3-384":
+		d := sha3.Sum384(pubKey)
+		digest = d[:]
+	case "sha3-512":
+		d := sha3.Sum512(pubKey)
+		digest = d[:]
+	default:
+		return nil, ni.ErrSuiteNotSupported
+	}
+
+	if domain == "" {
+		domain = DefaultResolveDomain
+	}
+
+	niURL, err := ni.DigestToNI(digest[:], suite, domain)
+	if err != nil {
+		return nil, err
+	}
+
+	return FingerprintFromRawNI(niURL)
 }
 
 // FingerprintFromRawNI transforms an NI URL to type fingerprint.
