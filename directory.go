@@ -191,32 +191,6 @@ Signature : {{.Signature | printf "%.33x…"}}`
 	return builder.String()
 }
 
-type DirectoryResponse struct {
-	Fingerprint *Fingerprint
-	Location    *url.URL
-}
-
-func parseDirectoryResponse(header http.Header) (*DirectoryResponse, error) {
-	rawLocation := header.Get("Content-Location")
-	location, err := url.Parse(rawLocation)
-	if err != nil {
-		return nil, err
-	}
-
-	rawFingerprint := header.Get("Fingerprint")
-	fingerprint, err := FingerprintFromNIString(rawFingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DirectoryResponse{
-		Location:    location,
-		Fingerprint: fingerprint,
-	}
-
-	return response, nil
-}
-
 const (
 	// DiscoverFlagUseDNS defines whether system DNS is used during discovery
 	DiscoverFlagUseDNS = 1 << iota
@@ -275,9 +249,9 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 // The record set is signed prior to sending.
 //  - HTTPs : via HTTP PUT and validate signature
 //  - MND   : Discover in local network with MND protocol
-func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
+func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	if a.AnnounceFlags == 0 {
-		return nil, fmt.Errorf("no AnnounceFlags set")
+		return fmt.Errorf("no AnnounceFlags set")
 	}
 
 	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
@@ -291,11 +265,10 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryRespo
 
 	// This just reimplements the old .Announce functionality for now.
 	var (
-		responseHTTPS *DirectoryResponse
-		err           error
+		err error
 	)
 	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
-		responseHTTPS, err = a.announceViaHTTPS(payload)
+		err = a.announceViaHTTPS(payload)
 		if err != nil {
 			logger.Warningf("announce via HTTPS failed: %s", err)
 		} else {
@@ -303,15 +276,14 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) (*DirectoryRespo
 		}
 	}
 
-	return responseHTTPS, err
+	return err
 }
 
 // announceViaHTTPS signs the record set and sends it to the directory in a
 // json-encoded HTTP PUT request.
-func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*DirectoryResponse, error) {
-	err := payload.Sign(a.keypair.PrivateKey)
-	if err != nil {
-		return nil, err
+func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
+	if err := payload.Sign(a.keypair.PrivateKey); err != nil {
+		return err
 	}
 
 	u := url.URL{}
@@ -321,7 +293,7 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*Direct
 
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	logger.Debugf("PUT request to: %s", u.String())
@@ -330,14 +302,14 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*Direct
 	reader := bytes.NewReader(b)
 	req, err := http.NewRequest("PUT", u.String(), reader)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
@@ -348,17 +320,12 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) (*Direct
 			logger.Warningln(string(body))
 		}
 
-		return nil, fmt.Errorf("Status Code %d", resp.StatusCode)
+		return fmt.Errorf("Status Code %d", resp.StatusCode)
 	}
 
 	logger.Debugf("answer: %+v", resp)
 
-	response, err := parseDirectoryResponse(resp.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
+	return nil
 }
 
 // announceViaMND checks for an attached MND listener and if present updates the
@@ -372,7 +339,7 @@ func (a *DirectoryClient) announceViaMND(payload *DirectoryRecordSet) error {
 }
 
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
-func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) (*DirectoryResponse, error) {
+func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) error {
 	payload := &DirectoryRecordSet{
 		Addresses: addresses,
 		Options:   a.options,
@@ -383,7 +350,7 @@ func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) (*Dire
 }
 
 // AnnounceBlob is a helper function that wraps the more generic Announce()
-func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) (*DirectoryResponse, error) {
+func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) error {
 	var (
 		payload = &DirectoryRecordSet{
 			Blob:    data,
