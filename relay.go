@@ -185,6 +185,7 @@ type RelayClient struct {
 	config Config
 	relay  *Fingerprint
 	dialer Dialer
+	node   *RelayNode
 }
 
 func NewRelayClient(relay *Fingerprint, config Config) (RelayClient, error) {
@@ -215,6 +216,7 @@ func (c *RelayClient) Dial(target *Fingerprint) (Conn, error) {
 		Keypair: c.config.TLSConfig.Certificates[0],
 		Trusted: append(c.config.AllowedPeers, c.relay),
 	}
+	c.node = &relay
 
 	req := RelayMessage{
 		Type:   RelayMsgTypeRequest,
@@ -310,4 +312,11 @@ func (c *RelayClient) Accept() (Conn, error) {
 			return conn, nil
 		}
 	}
+}
+
+func (c *RelayClient) Close() error {
+	if c.node != nil {
+		return c.node.Conn.Close()
+	}
+	return nil
 }
