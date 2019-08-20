@@ -257,9 +257,9 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
 		err := a.announceViaMND(payload)
 		if err != nil {
-			logger.Warningf("announce via MND failed: %s", err)
+			Logger.Warningf("announce via MND failed: %s", err)
 		} else {
-			logger.Debugf("announce via MND successful")
+			Logger.Debugf("announce via MND successful")
 		}
 	}
 
@@ -270,9 +270,9 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
 		err = a.announceViaHTTPS(payload)
 		if err != nil {
-			logger.Warningf("announce via HTTPS failed: %s", err)
+			Logger.Warningf("announce via HTTPS failed: %s", err)
 		} else {
-			logger.Debugf("announce via HTTPS successful")
+			Logger.Debugf("announce via HTTPS successful")
 		}
 	}
 
@@ -296,8 +296,8 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
 		return err
 	}
 
-	logger.Debugf("PUT request to: %s", u.String())
-	logger.Debugf("JSON payload: %s", b)
+	Logger.Debugf("PUT request to: %s", u.String())
+	Logger.Debugf("JSON payload: %s", b)
 
 	reader := bytes.NewReader(b)
 	req, err := http.NewRequest("PUT", u.String(), reader)
@@ -317,13 +317,13 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
 		// Read it if available and log it.
 		defer resp.Body.Close()
 		if body, err := ioutil.ReadAll(resp.Body); err != nil {
-			logger.Warningln(string(body))
+			Logger.Warningln(string(body))
 		}
 
 		return fmt.Errorf("Status Code %d", resp.StatusCode)
 	}
 
-	logger.Debugf("answer: %+v", resp)
+	Logger.Debugf("answer: %+v", resp)
 
 	return nil
 }
@@ -374,43 +374,43 @@ func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSe
 		return nil, fmt.Errorf("no DiscoverFlags present")
 	}
 
-	logger.Debugf("discovering '%s'", fingerprint.String())
+	Logger.Debugf("discovering '%s'", fingerprint.String())
 
 	if (a.DiscoverFlags & DiscoverFlagUseMND) != 0 {
 		payload, err := a.discoverViaMND(fingerprint)
 		if err == nil {
 			// FIXME: This debug message is fugly!
-			logger.Debugf("got RecordSet via MND: %s", payload.Pretty())
+			Logger.Debugf("got RecordSet via MND: %s", payload.Pretty())
 			return payload, nil
 		}
-		logger.Debugf("discover via MND failed: %s", err)
+		Logger.Debugf("discover via MND failed: %s", err)
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseDoH) != 0 {
 		payload, err := a.discoverViaDoH(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via DoH: %s", payload.Pretty())
+			Logger.Debugf("got RecordSet via DoH: %s", payload.Pretty())
 			return payload, nil
 		}
-		logger.Debugf("discover via DoH failed: %s", err)
+		Logger.Debugf("discover via DoH failed: %s", err)
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseDNS) != 0 {
 		payload, err := a.discoverViaDNS(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via DNS: %s", payload.Pretty())
+			Logger.Debugf("got RecordSet via DNS: %s", payload.Pretty())
 			return payload, nil
 		}
-		logger.Debugf("discover via system dns failed: %s", err)
+		Logger.Debugf("discover via system dns failed: %s", err)
 	}
 
 	if (a.DiscoverFlags & DiscoverFlagUseHTTPS) != 0 {
 		payload, err := a.discoverViaHTTPS(fingerprint)
 		if err == nil {
-			logger.Debugf("got RecordSet via HTTP: %s", payload.Pretty())
+			Logger.Debugf("got RecordSet via HTTP: %s", payload.Pretty())
 			return payload, nil
 		}
-		logger.Debugf("discover via HTTPS failed: %s", err)
+		Logger.Debugf("discover via HTTPS failed: %s", err)
 	}
 
 	return nil, fmt.Errorf("fingerprint '%s' not found", fingerprint.String())
@@ -633,7 +633,7 @@ func (a *DirectoryClient) discoverViaHTTPS(fingerprint *Fingerprint) (*Directory
 // listens for the response of the queried node. If a response is received, the
 // signature of the record set is verified.
 func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	logger.Debugf("Discovering via MND: %s", fingerprint.String())
+	Logger.Debugf("Discovering via MND: %s", fingerprint.String())
 
 	// Define request payload with target FP as bytes in blob entry
 	req := &DirectoryRecordSet{
@@ -653,11 +653,11 @@ func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRe
 	}
 	signatureOk, err := resp.CheckSignature(fingerprint)
 	if err != nil {
-		logger.Debugf("signature check failed: %s", err)
+		Logger.Debugf("signature check failed: %s", err)
 		return nil, err
 	}
 	if !signatureOk {
-		logger.Debug("response has invalid signature")
+		Logger.Debug("response has invalid signature")
 		return nil, fmt.Errorf("signature check failed")
 	}
 

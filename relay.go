@@ -202,7 +202,7 @@ func NewRelayClient(relay *Fingerprint, config Config) (RelayClient, error) {
 }
 
 func (c *RelayClient) Dial(target *Fingerprint) (Conn, error) {
-	logger.Debugf("dialing via relay %s to %s", c.relay, target)
+	Logger.Debugf("dialing via relay %s to %s", c.relay, target)
 
 	relayConn, err := c.dialer.DialTimeout("tcp", c.relay.String(), 5*time.Second)
 	if err != nil {
