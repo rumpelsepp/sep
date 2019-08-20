@@ -174,7 +174,10 @@ func (c *Connector) Connect(target *Fingerprint, timeout time.Duration) (Conn, e
 	go c.dial(ctx, target)
 	go c.dialRelay(ctx, target)
 
-	var conns []internalConn
+	var (
+		conns []internalConn
+		t     *time.Timer
+	)
 
 	for {
 		select {
@@ -182,6 +185,9 @@ func (c *Connector) Connect(target *Fingerprint, timeout time.Duration) (Conn, e
 			// Fast path when a direct connection comes.
 			if conn.prio == 0 {
 				return conn.conn, nil
+			}
+			if t == nil {
+				t = time.AfterFunc(10*time.Second, cancel)
 			}
 			conns = append(conns, conn)
 
