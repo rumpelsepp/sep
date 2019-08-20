@@ -45,11 +45,11 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 		return nil, err
 	}
 
-	logger.Debugf("%+v", state)
-	logger.Debugf("connected to: %s", conn.RemoteAddr())
-	logger.Debugf("local fingerprint : %s", localFingerprint.String())
-	logger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
-	logger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
+	Logger.Debugf("%+v", state)
+	Logger.Debugf("connected to: %s", conn.RemoteAddr())
+	Logger.Debugf("local fingerprint : %s", localFingerprint.String())
+	Logger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
+	Logger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
 
 	return &TCPConn{
 		tlsConn:           conn,
@@ -240,7 +240,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	for _, addr := range addrs {
 		parsedAddr, err := url.Parse(addr)
 		if err != nil {
-			logger.Debugln(err)
+			Logger.Debugln(err)
 			continue
 		}
 
@@ -250,13 +250,13 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		}
 
 		if !strings.Contains(network, "tcp") {
-			logger.Debugf("wrong network: %s", network)
+			Logger.Debugf("wrong network: %s", network)
 			continue
 		}
 
 		tcpConnIntf, err := d.dialer.Dial(network, parsedAddr.Host)
 		if err != nil {
-			logger.Debugln(err)
+			Logger.Debugln(err)
 			continue
 		}
 
@@ -271,12 +271,12 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 			// we must clean the connection in order to avoid a nil
 			// pointer dereference.
 			c = nil
-			logger.Debugln(err)
+			Logger.Debugln(err)
 			continue
 		}
 
 		// When the loop reaches this point, there is a connection.
-		logger.Debugf("established SEP connection to: %s", c.RemoteAddr())
+		Logger.Debugf("established SEP connection to: %s", c.RemoteAddr())
 
 		return c, nil
 	}

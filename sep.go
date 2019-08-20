@@ -36,10 +36,10 @@ const (
 // 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 // )
 
-var logger = rlog.NewLogger()
+var Logger = rlog.NewLogger()
 
 func init() {
-	logger.SetModule("[sep]")
+	Logger.SetModule("[sep]")
 }
 
 // NewDefaultTLSConfig returns type tls.Config with default settings utilized in

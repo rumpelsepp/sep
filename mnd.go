@@ -15,32 +15,32 @@ import (
 func mndBroadcastRequest(payload *DirectoryRecordSet) {
 	brdAddresses, err := gatherAllBroadcastAddresses()
 	if err != nil {
-		logger.Warningf("gathering broadcast addresses failed: %s", err)
+		Logger.Warningf("gathering broadcast addresses failed: %s", err)
 		return
 	}
-	logger.Debugf("MND discover requests are sent to these broadcast addresses: %+v", brdAddresses)
+	Logger.Debugf("MND discover requests are sent to these broadcast addresses: %+v", brdAddresses)
 
 	for _, brdAddress := range brdAddresses {
 		brd, err := net.ResolveUDPAddr("udp", net.JoinHostPort(brdAddress, DefaultMNDDiscoverPort))
 		if err != nil {
-			logger.Warningf("%v", err)
+			Logger.Warningf("%v", err)
 			continue
 		}
 
 		conn, err := net.DialUDP("udp", nil, brd)
 		if err != nil {
-			logger.Warningf("%v", err)
+			Logger.Warningf("%v", err)
 			continue
 		}
 
 		encoder := cbor.NewEncoder(conn, cbor.EncOptions{Canonical: true})
 		if err := encoder.Encode(payload); err != nil {
-			logger.Warningf("%v", err)
+			Logger.Warningf("%v", err)
 			continue
 		}
 
 		if err := conn.Close(); err != nil {
-			logger.Warningf("%v", err)
+			Logger.Warningf("%v", err)
 			continue
 		}
 	}
@@ -66,21 +66,21 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 	go func() {
 		for decoding {
 			if err := decoder.Decode(response); err != nil {
-				logger.Debugf("MND discovery encountered decoder error: %s", err)
+				Logger.Debugf("MND discovery encountered decoder error: %s", err)
 				continue
 			}
 
 			respFp, err := FingerprintFromPublicKey(response.PubKey, DefaultFingerprintSuite, "")
 			if err != nil {
-				logger.Debugf("MND discovery got response with non-parsable public key: %s", err)
+				Logger.Debugf("MND discovery got response with non-parsable public key: %s", err)
 				continue
 			}
 			if !FingerprintIsEqual(respFp, targetFp) {
-				logger.Debugf("MND discovery got response from '%s', expecting '%s'", respFp, targetFp)
+				Logger.Debugf("MND discovery got response from '%s', expecting '%s'", respFp, targetFp)
 				continue
 			}
 
-			logger.Debugf("MND discovery got valid response")
+			Logger.Debugf("MND discovery got valid response")
 			gotResp <- true
 			return
 		}
@@ -90,11 +90,11 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 	for {
 		select {
 		case <-timeout:
-			logger.Debug("MND discovery timed out")
+			Logger.Debug("MND discovery timed out")
 			decoding = false
 			return nil, fmt.Errorf("MND discovery timeout")
 		case <-gotResp:
-			logger.Debug("MND discovery was successful")
+			Logger.Debug("MND discovery was successful")
 			return response, nil
 		}
 	}
@@ -156,14 +156,14 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 		return err
 	}
 	if writer.Buffered() > 500 || writer.Buffered() == 0 {
-		logger.Warning(writer.Buffered())
+		Logger.Warning(writer.Buffered())
 		return fmt.Errorf("RecordSet too large")
 	}
 
 	m.timeout.Reset(time.Duration(m.payload.TTL) * time.Second)
 
 	if !m.running {
-		logger.Debugf("Starting MND listener on %s", m.listenAddr)
+		Logger.Debugf("Starting MND listener on %s", m.listenAddr)
 		m.running = true
 		if err := m.listen(m.listenAddr); err != nil {
 			return err
@@ -196,12 +196,12 @@ func (m *MNDListener) listen(listenAddr string) error {
 		for {
 			select {
 			case <-m.timeout.C:
-				logger.Info("MNDListener timed out")
+				Logger.Info("MNDListener timed out")
 				m.running = false
 				conn.Close()
 				return
 			case <-m.close:
-				logger.Info("MNDListener received close request")
+				Logger.Info("MNDListener received close request")
 				m.running = false
 				conn.Close()
 				return
@@ -216,41 +216,41 @@ func (m *MNDListener) listen(listenAddr string) error {
 		for m.running {
 			n, senderAddress, err := conn.ReadFromUDP(buff)
 			if err != nil {
-				logger.Debugf("MNDListener encountered decoder error: %s", err)
+				Logger.Debugf("MNDListener encountered decoder error: %s", err)
 				continue
 			}
-			logger.Debugf("MNDListener received packet from %s", senderAddress.String())
+			Logger.Debugf("MNDListener received packet from %s", senderAddress.String())
 
 			// Decode packet
 			decoder := cbor.NewDecoder(bytes.NewReader(buff[:n]))
 			if err := decoder.Decode(requestPayload); err != nil {
-				logger.Debugf("could not parse payload: %s", err)
+				Logger.Debugf("could not parse payload: %s", err)
 				continue
 			}
 
 			// Check target
 			if !bytes.Equal(requestPayload.Blob, m.ownFp.Bytes()) {
-				logger.Debugf("got request for '%s'; am '%s'", requestPayload.Blob, m.ownFp.Bytes())
+				Logger.Debugf("got request for '%s'; am '%s'", requestPayload.Blob, m.ownFp.Bytes())
 				continue
 			}
-			logger.Debugf("MND discover request is addressed to me")
+			Logger.Debugf("MND discover request is addressed to me")
 
 			// Validate packet signature
 			reqFp, err := FingerprintFromPublicKey(requestPayload.PubKey, DefaultFingerprintSuite, "")
 			if err != nil {
-				logger.Debugf("got response with non-parsable public key: %s", err)
+				Logger.Debugf("got response with non-parsable public key: %s", err)
 				continue
 			}
 			signatureOk, err := requestPayload.CheckSignature(reqFp)
 			if err != nil {
-				logger.Debugf("signature check failed: %s", err)
+				Logger.Debugf("signature check failed: %s", err)
 				continue
 			}
 			if !signatureOk {
-				logger.Infof("signature check failed: %s", err)
+				Logger.Infof("signature check failed: %s", err)
 				continue
 			}
-			logger.Debugf("MND discover request has valid signature")
+			Logger.Debugf("MND discover request has valid signature")
 
 			// Check whether sender is trusted
 			trusted := false
@@ -261,21 +261,21 @@ func (m *MNDListener) listen(listenAddr string) error {
 				}
 			}
 			if !trusted {
-				logger.Debug("MND discover request comes from untrusted node")
+				Logger.Debug("MND discover request comes from untrusted node")
 				continue
 			}
-			logger.Debug("MND discover request comes from trusted node")
+			Logger.Debug("MND discover request comes from trusted node")
 
 			// Prepare response address
 			if senderAddress.Port, err = strconv.Atoi(DefaultMNDResponsePort); err != nil {
-				logger.Warningf("could not parse DefaultMNDResponsePort")
+				Logger.Warningf("could not parse DefaultMNDResponsePort")
 				continue
 			}
 
 			// Send response
 			respConn, err := net.DialUDP("udp", nil, senderAddress)
 			if err != nil {
-				logger.Warning(err)
+				Logger.Warning(err)
 				continue
 			}
 			defer respConn.Close()
@@ -286,10 +286,10 @@ func (m *MNDListener) listen(listenAddr string) error {
 
 			encoder := cbor.NewEncoder(respConn, cbor.EncOptions{Canonical: true})
 			if err := encoder.Encode(m.payload); err != nil {
-				logger.Warning(err)
+				Logger.Warning(err)
 				continue
 			}
-			logger.Debugf("MND discover response sent to %s", senderAddress.String())
+			Logger.Debugf("MND discover response sent to %s", senderAddress.String())
 		}
 	}()
 

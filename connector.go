@@ -25,7 +25,7 @@ type internalConn struct {
 }
 
 func (c *Connector) listenAndAccept(ctx context.Context) {
-	defer logger.Debugln("listener terminated")
+	defer Logger.Debugln("listener terminated")
 
 	ln, err := Listen("tcp", c.ListenAddr, c.Config)
 	if err != nil {
@@ -50,7 +50,7 @@ func (c *Connector) listenAndAccept(ctx context.Context) {
 }
 
 func (c Connector) dial(ctx context.Context, target *Fingerprint) {
-	defer logger.Debugln("dialer terminated")
+	defer Logger.Debugln("dialer terminated")
 
 	dialer, err := NewDialer("tcp", c.Config)
 	if err != nil {
@@ -78,7 +78,7 @@ func (c Connector) dial(ctx context.Context, target *Fingerprint) {
 }
 
 func (c *Connector) dialRelay(ctx context.Context, target *Fingerprint) {
-	defer logger.Debugln("relay dialer terminated")
+	defer Logger.Debugln("relay dialer terminated")
 
 	var conn Conn
 	for conn == nil {
@@ -127,7 +127,7 @@ func (c *Connector) dialRelay(ctx context.Context, target *Fingerprint) {
 }
 
 func (c *Connector) listenAndAcceptRelay(ctx context.Context) {
-	defer logger.Debugln("relay listener terminated")
+	defer Logger.Debugln("relay listener terminated")
 
 	// TODO: remove pointers, because of pain. Copy the config!!!
 	conf := c.Config
@@ -142,7 +142,7 @@ func (c *Connector) listenAndAcceptRelay(ctx context.Context) {
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
-			logger.Debugf("relayAccept failed: %s", err)
+			Logger.Debugf("relayAccept failed: %s", err)
 			return
 		}
 
@@ -186,7 +186,7 @@ func (c *Connector) Connect(target *Fingerprint, timeout time.Duration) (Conn, e
 			conns = append(conns, conn)
 
 		case err := <-c.errCh:
-			logger.Debugln(err)
+			Logger.Debugln(err)
 
 		case <-ctx.Done():
 			if len(conns) == 0 {
