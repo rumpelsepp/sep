@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"git.sr.ht/~rumpelsepp/rlog"
 	"golang.org/x/xerrors"
 )
 
@@ -235,7 +234,7 @@ func GatherAllAddresses(port string) ([]string, error) {
 	for _, intf := range interfaces {
 		addresses, err := intf.Addrs()
 		if err != nil {
-			rlog.Warning(err)
+			Logger.Warning(err)
 			continue
 		}
 
@@ -263,7 +262,7 @@ func gatherAllBroadcastAddresses() ([]string, error) {
 	for _, intf := range interfaces {
 		addresses, err := intf.Addrs()
 		if err != nil {
-			rlog.Warning(err)
+			Logger.Warning(err)
 			continue
 		}
 
@@ -291,7 +290,7 @@ func gatherAllBroadcastAddresses() ([]string, error) {
 //	ni://<authority>/<algorithm>;<value>		<alias>
 //	ni://<authority>/<algorithm>;<value>		<alias>
 func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
-	rlog.Debugf("Loading authorized fingerprints from %s", path)
+	Logger.Debugf("Loading authorized fingerprints from %s", path)
 
 	m := make(map[string]*Fingerprint)
 
@@ -313,7 +312,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 
 		// Ignore comments
 		if strings.HasPrefix(scanner.Text(), "#") {
-			rlog.Debugf("Ignoring comment:\t\"%s\"", scanner.Text())
+			Logger.Debugf("Ignoring comment:\t\"%s\"", scanner.Text())
 			continue
 		}
 		// Ignore empty lines
@@ -324,16 +323,16 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 		// Ignore invalid lines
 		fingerprint, err := FingerprintFromNIString(fields[0])
 		if len(fields) != 2 || err != nil {
-			rlog.Debugf("Could not parse:\t\"%s\"", scanner.Text())
+			Logger.Debugf("Could not parse:\t\"%s\"", scanner.Text())
 			continue
 		}
 
 		m[fields[1]] = fingerprint
 	}
 
-	rlog.Debugln("Extracted these fingerprints:")
+	Logger.Debugln("Extracted these fingerprints:")
 	for k, v := range m {
-		rlog.Debugf("\t%s\t%s", v, k)
+		Logger.Debugf("\t%s\t%s", v, k)
 	}
 
 	return m, nil
@@ -342,7 +341,7 @@ func LoadAuthorizedFingerprints(path string) (map[string]*Fingerprint, error) {
 // AddAuthorizedFingerprint appends the given fingerprint and alias to the
 // specified file such that LoadAuthorizedFingerprints() can understand.
 func AddAuthorizedFingerprint(path string, fingerprint *Fingerprint, alias string) error {
-	rlog.Debugf("Trying to add fingerprint %s as %s", fingerprint.String(), alias)
+	Logger.Debugf("Trying to add fingerprint %s as %s", fingerprint.String(), alias)
 
 	// Create conf folder if not existing
 	// Load file, if it is already there.
