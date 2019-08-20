@@ -15,7 +15,7 @@ import (
 func mndBroadcastRequest(payload *DirectoryRecordSet) {
 	brdAddresses, err := gatherAllBroadcastAddresses()
 	if err != nil {
-		Logger.Warningf("gathering broadcast addresses failed: %s", err)
+		Logger.Warningf("MND discover failed while gathering broadcast addresses: %s", err)
 		return
 	}
 	Logger.Debugf("MND discover requests are sent to these broadcast addresses: %+v", brdAddresses)
@@ -76,7 +76,7 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 				continue
 			}
 			if !FingerprintIsEqual(respFp, targetFp) {
-				Logger.Debugf("MND discovery got response from '%s', expecting '%s'", respFp, targetFp)
+				Logger.Debugf("MND discovery got response from '%s', instead expected '%s'", respFp.String(), targetFp.String())
 				continue
 			}
 
@@ -163,7 +163,7 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 	m.timeout.Reset(time.Duration(m.payload.TTL) * time.Second)
 
 	if !m.running {
-		Logger.Debugf("Starting MND listener on %s", m.listenAddr)
+		Logger.Debugf("MNDListener is now listening on %s", m.listenAddr)
 		m.running = true
 		if err := m.listen(m.listenAddr); err != nil {
 			return err
@@ -224,13 +224,13 @@ func (m *MNDListener) listen(listenAddr string) error {
 			// Decode packet
 			decoder := cbor.NewDecoder(bytes.NewReader(buff[:n]))
 			if err := decoder.Decode(requestPayload); err != nil {
-				Logger.Debugf("could not parse payload: %s", err)
+				Logger.Debugf("MNDListener could not parse payload: %s", err)
 				continue
 			}
 
 			// Check target
 			if !bytes.Equal(requestPayload.Blob, m.ownFp.Bytes()) {
-				Logger.Debugf("got request for '%s'; am '%s'", requestPayload.Blob, m.ownFp.Bytes())
+				Logger.Debugf("MNDListener got request addressed to other node: '%X'", requestPayload.Blob)
 				continue
 			}
 			Logger.Debugf("MND discover request is addressed to me")
@@ -238,16 +238,16 @@ func (m *MNDListener) listen(listenAddr string) error {
 			// Validate packet signature
 			reqFp, err := FingerprintFromPublicKey(requestPayload.PubKey, DefaultFingerprintSuite, "")
 			if err != nil {
-				Logger.Debugf("got response with non-parsable public key: %s", err)
+				Logger.Debugf("MND discover request has non-parsable public key: %s", err)
 				continue
 			}
 			signatureOk, err := requestPayload.CheckSignature(reqFp)
 			if err != nil {
-				Logger.Debugf("signature check failed: %s", err)
+				Logger.Debugf("MND discover request failed signature check: %s", err)
 				continue
 			}
 			if !signatureOk {
-				Logger.Infof("signature check failed: %s", err)
+				Logger.Infof("MND discover request has invalid signature: %s", err)
 				continue
 			}
 			Logger.Debugf("MND discover request has valid signature")
@@ -268,7 +268,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 
 			// Prepare response address
 			if senderAddress.Port, err = strconv.Atoi(DefaultMNDResponsePort); err != nil {
-				Logger.Warningf("could not parse DefaultMNDResponsePort")
+				Logger.Warningf("MNDListener could not parse DefaultMNDResponsePort")
 				continue
 			}
 
