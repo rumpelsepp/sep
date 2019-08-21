@@ -11,20 +11,19 @@ import (
 )
 
 type TCPConn struct {
+	rawConn           *net.TCPConn
 	tlsConn           *tls.Conn
-	transport         *net.TCPConn
-	network           string
 	config            *Config
 	localFingerprint  *Fingerprint
 	remoteFingerprint *Fingerprint
 	alp               string
-
-	isServer bool
 }
 
 func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	if config.TLSConfig.VerifyPeerCertificate == nil {
-		config.TLSConfig.VerifyPeerCertificate = MakeDefaultVerifier(config.AllowedPeers, config.Database)
+		// We do verifying ourselves.
+		config.TLSConfig.InsecureSkipVerify = true
+		config.TLSConfig.VerifyPeerCertificate = MakeDefaultVerifier(config.AllowedPeers, config.TrustDB)
 	}
 
 	err := conn.Handshake()
@@ -45,11 +44,17 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 		return nil, err
 	}
 
-	Logger.Debugf("%+v", state)
-	Logger.Debugf("connected to: %s", conn.RemoteAddr())
-	Logger.Debugf("local fingerprint : %s", localFingerprint.String())
-	Logger.Debugf("remote fingerprint: %s", remoteFingerprint.String())
-	Logger.Debugf("TLS connection established: %s", tlsCipherSuiteNames[state.CipherSuite])
+	Logger.Debugf(
+		"established %s: %s <-> %s",
+		tlsCipherSuiteNames[state.CipherSuite],
+		conn.LocalAddr(),
+		conn.RemoteAddr(),
+	)
+	Logger.Debugf(
+		" => %s <-> %s",
+		localFingerprint.String(),
+		remoteFingerprint.String(),
+	)
 
 	return &TCPConn{
 		tlsConn:           conn,
@@ -66,33 +71,24 @@ func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	sepConn.transport = conn
-	sepConn.isServer = true
-	sepConn.network = "tcp"
+	sepConn.rawConn = conn
 
 	return sepConn, nil
 }
 
 func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
-	// We do verifying ourselves.
-	config.TLSConfig.InsecureSkipVerify = true
-
 	tlsConn := tls.Client(conn, config.TLSConfig)
 	sepConn, err := initSEP(tlsConn, config)
 	if err != nil {
 		return nil, err
 	}
-
-	sepConn.transport = conn
-	sepConn.isServer = false
-	sepConn.network = "tcp"
+	sepConn.rawConn = conn
 
 	return sepConn, nil
 }
 
 func (c *TCPConn) RawConnection() net.Conn {
-	return c.transport
+	return c.rawConn
 }
 
 func (c *TCPConn) Read(b []byte) (int, error) {
@@ -141,7 +137,7 @@ func (c *TCPConn) ALP() string {
 
 type tcpListener struct {
 	net.Listener
-	Config *Config
+	config *Config
 }
 
 func tcpListen(network, address string, config *Config) (*tcpListener, error) {
@@ -172,7 +168,7 @@ func tcpListen(network, address string, config *Config) (*tcpListener, error) {
 
 	return &tcpListener{
 		Listener: ln,
-		Config:   config,
+		config:   config,
 	}, nil
 }
 
@@ -185,7 +181,7 @@ func (ln *tcpListener) Accept() (Conn, error) {
 	// This won't panic, otherwise it's a bug.
 	tcpConn := conn.(*net.TCPConn)
 
-	tunnel, err := tcpServer(tcpConn, ln.Config)
+	tunnel, err := tcpServer(tcpConn, ln.config)
 	if err != nil {
 		return nil, err
 	}
@@ -194,13 +190,10 @@ func (ln *tcpListener) Accept() (Conn, error) {
 }
 
 type tcpDialer struct {
-	dialer    *net.Dialer
-	Config    *Config
-	directory DirectoryClient
-	visited   []string
+	dialer *net.Dialer
+	config *Config
 }
 
-// TODO: Add a resolver argument
 func newTCPDialer(config Config) Dialer {
 	var dialer *net.Dialer
 
@@ -212,19 +205,15 @@ func newTCPDialer(config Config) Dialer {
 		dialer = &net.Dialer{}
 	}
 
-	dirClient := NewDirectoryClient(DefaultResolveDomain, &config.TLSConfig.Certificates[0], nil)
-
 	return &tcpDialer{
-		dialer:    dialer,
-		Config:    &config,
-		directory: dirClient,
+		dialer: dialer,
+		config: &config,
 	}
 }
 
 func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (Conn, error) {
 	var c Conn
 
-	d.Config.TLSConfig.NextProtos = []string{AlpSEP}
 	d.dialer.Timeout = timeout
 
 	fingerprint, err := FingerprintFromNIString(target)
@@ -232,7 +221,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		return nil, err
 	}
 
-	addrs, err := d.directory.DiscoverAddresses(fingerprint)
+	addrs, err := d.config.Directory.DiscoverAddresses(fingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +252,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		// This won't panic, otherwise it's a bug.
 		tcpConn := tcpConnIntf.(*net.TCPConn)
 
-		c, err = tcpClient(tcpConn, d.Config)
+		c, err = tcpClient(tcpConn, d.config)
 		if err != nil {
 			// This can happen, because TCP-FO is in use. connect(2)
 			// returns immediately and fails on the first read(2) if
