@@ -33,16 +33,15 @@ type DirectoryOptions struct {
 }
 
 type DirectoryRecordSet struct {
-	Addresses  []string          `json:"addresses,omitempty"`
-	Delegators []string          `json:"delegator,omitempty"`
-	Relays     []string          `json:"relay,omitempty"`
-	Blob       []byte            `json:"blob,omitempty"`
-	PubKey     []byte            `json:"pubkey"`
-	TTL        uint              `json:"ttl"`
-	Timestamp  []byte            `json:"timestamp"`
-	Signature  []byte            `json:"signature"`
-	Version    uint              `json:"version"`
-	Options    *DirectoryOptions `json:"options,omitempty"`
+	Addresses []string          `json:"addresses,omitempty"`
+	Relays    []string          `json:"relay,omitempty"`
+	Blob      []byte            `json:"blob,omitempty"`
+	PubKey    []byte            `json:"pubkey"`
+	TTL       uint              `json:"ttl"`
+	Timestamp []byte            `json:"timestamp"`
+	Signature []byte            `json:"signature"`
+	Version   uint              `json:"version"`
+	Options   *DirectoryOptions `json:"options,omitempty"`
 }
 
 type ecdsaSignature struct {
@@ -53,14 +52,10 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 	var res []byte
 
 	sort.Strings(a.Addresses)
-	sort.Strings(a.Delegators)
 	sort.Strings(a.Relays)
 
 	if len(a.Addresses) > 0 {
 		res = append(res, []byte(strings.Join(a.Addresses, ""))...)
-	}
-	if len(a.Delegators) > 0 {
-		res = append(res, []byte(strings.Join(a.Delegators, ""))...)
 	}
 	if len(a.Relays) > 0 {
 		res = append(res, []byte(strings.Join(a.Relays, ""))...)
@@ -166,7 +161,6 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 // Pretty generates a nice, human readable representation of the RecordSet.
 // This is useful for debugging.
 func (a *DirectoryRecordSet) Pretty() string {
-
 	funcs := template.FuncMap{
 		"unmarshalTimestamp": func(in []byte) string {
 			var b time.Time
@@ -176,7 +170,6 @@ func (a *DirectoryRecordSet) Pretty() string {
 	}
 
 	tpl := `Addresses : {{range $i, $v := .Addresses}}{{$v}} {{end}}
-Delegators: {{range $i, $v := .Delegators}}{{$v}}{{end}}
 Relays    : {{range $i, $v := .Relays}}{{$v}}{{end}}
 Blob      : {{if .Blob}}{{.Blob | printf "%.33x…"}}{{end}}
 Timestamp : {{unmarshalTimestamp .Timestamp}}
@@ -461,13 +454,6 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 			}
 			payload.Relays = append(payload.Relays, parsedURL.String())
 
-		case "delegator":
-			parsedURL, err := url.Parse(parts[1])
-			if err != nil {
-				return nil, err
-			}
-			payload.Delegators = append(payload.Delegators, parsedURL.String())
-
 		case "signature":
 			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
 			if err != nil {
@@ -690,17 +676,6 @@ func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error)
 	}
 
 	return payload.Blob, nil
-}
-
-// DiscoverDelegators is a helper function that wraps the more generic
-// Discover().
-func (a *DirectoryClient) DiscoverDelegators(fingerprint *Fingerprint) ([]string, error) {
-	payload, err := a.Discover(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	return payload.Delegators, nil
 }
 
 // DiscoverRelays is a helper function that wraps the more generic Discover().
