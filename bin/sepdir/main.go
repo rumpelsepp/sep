@@ -76,7 +76,7 @@ func main() {
 			Addresses: addrs,
 			TTL:       1800,
 		}
-		if _, err := dirClient.Announce(&req); err != nil {
+		if err := dirClient.Announce(&req); err != nil {
 			rlog.Critln(err)
 		}
 
