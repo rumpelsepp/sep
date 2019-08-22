@@ -16,7 +16,7 @@ type runtimeOptions struct {
 
 func main() {
 	opts := runtimeOptions{}
-	getopt.StringVar(&opts.directory, "d", "api.ace-sep.de", "Domain of Directory")
+	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Domain of Directory")
 	getopt.StringVar(&opts.fetch, "f", "", "Fetch this Blob and print to stdout")
 	getopt.Parse()
 
@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dirClient := sep.NewDirectoryClient(opts.directory, &keypair, nil)
+	dirClient := sep.NewDirectoryClient("api."+opts.directory, &keypair, nil)
 
 	if opts.fetch != "" {
 		fingerprint, err := sep.FingerprintFromNIString(opts.fetch)
@@ -56,11 +56,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	resp, err := dirClient.AnnounceBlob(data, 1800)
-	if err != nil {
+	if err := dirClient.AnnounceBlob(data, 1800); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	fmt.Println(resp.Fingerprint)
+	ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0], sep.DefaultFingerprintSuite, opts.directory)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(ownFp.String())
 }
