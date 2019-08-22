@@ -103,10 +103,10 @@ func Listen(network, address string, config Config) (Listener, error) {
 
 type Config struct {
 	TLSConfig    *tls.Config
-	ResolveFlags int
 	AllowedPeers []*Fingerprint
+	TrustDB      TrustDatabase
+	Directory    *DirectoryClient
 	TCPFastOpen  bool
-	Database     TrustDatabase
 }
 
 type Conn interface {
