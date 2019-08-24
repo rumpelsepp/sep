@@ -1,0 +1,16 @@
+image: golang:1.12
+
+stages:
+  - build
+
+build-linux-amd64:
+  stage: build
+  script:
+    - cd ./bin
+    - make
+
+  artifacts:
+    paths:
+      - bin/blobber/blobber
+      - bin/delegfetch/delegfetch
+      - bin/sepdir/sepdir
