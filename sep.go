@@ -109,6 +109,19 @@ type Config struct {
 	TCPFastOpen  bool
 }
 
+func (c *Config) Clone() Config {
+	allowed := make([]*Fingerprint, len(c.AllowedPeers))
+	copy(allowed, c.AllowedPeers)
+
+	return Config{
+		TLSConfig:    c.TLSConfig.Clone(),
+		AllowedPeers: allowed,
+		TrustDB:      c.TrustDB,
+		Directory:    c.Directory,
+		TCPFastOpen:  c.TCPFastOpen,
+	}
+}
+
 type Conn interface {
 	net.Conn
 	RawConnection() net.Conn
