@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"time"
@@ -36,7 +37,7 @@ const (
 // 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 // )
 
-var Logger = rlog.NewLogger()
+var Logger = rlog.NewLogger(ioutil.Discard)
 
 func init() {
 	Logger.SetModule("[sep]")
@@ -107,6 +108,19 @@ type Config struct {
 	TrustDB      TrustDatabase
 	Directory    *DirectoryClient
 	TCPFastOpen  bool
+}
+
+func (c *Config) Clone() Config {
+	allowed := make([]*Fingerprint, len(c.AllowedPeers))
+	copy(allowed, c.AllowedPeers)
+
+	return Config{
+		TLSConfig:    c.TLSConfig.Clone(),
+		AllowedPeers: allowed,
+		TrustDB:      c.TrustDB,
+		Directory:    c.Directory,
+		TCPFastOpen:  c.TCPFastOpen,
+	}
 }
 
 type Conn interface {

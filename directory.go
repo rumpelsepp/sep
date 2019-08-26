@@ -215,7 +215,7 @@ type DirectoryClient struct {
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 // TODO Add more details about those defaults, e.g. DiscoverFlags
-func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) DirectoryClient {
+func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) *DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
 			DisableCompression: true,
@@ -223,7 +223,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 		},
 	}
 
-	return DirectoryClient{
+	return &DirectoryClient{
 		AnnounceEndpoint: addr,
 		DoHEndpoint:      DefaultDoHURI,
 		keypair:          keypair,

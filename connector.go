@@ -12,7 +12,6 @@ import (
 type Connector struct {
 	Config     Config
 	Relay      *Fingerprint
-	DirClient  DirectoryClient
 	ListenAddr string
 
 	resultCh chan internalConn
@@ -90,7 +89,7 @@ func (c *Connector) dialRelay(ctx context.Context, target *Fingerprint) {
 		default:
 		}
 
-		relays, err := c.DirClient.DiscoverRelays(target)
+		relays, err := c.Config.Directory.DiscoverRelays(target)
 		if err != nil {
 			c.errCh <- err
 			continue
@@ -107,8 +106,7 @@ func (c *Connector) dialRelay(ctx context.Context, target *Fingerprint) {
 			return
 		}
 
-		// TODO: remove pointers, because of pain. Copy the config!!!
-		conf := c.Config
+		conf := c.Config.Clone()
 		conf.AllowedPeers = append(conf.AllowedPeers, relayFP)
 
 		// TODO: Make this guy persistent. Needs SEP changes.
@@ -129,8 +127,7 @@ func (c *Connector) dialRelay(ctx context.Context, target *Fingerprint) {
 func (c *Connector) listenAndAcceptRelay(ctx context.Context) {
 	defer Logger.Debugln("relay listener terminated")
 
-	// TODO: remove pointers, because of pain. Copy the config!!!
-	conf := c.Config
+	conf := c.Config.Clone()
 	conf.AllowedPeers = append(conf.AllowedPeers, c.Relay)
 
 	ln, err := NewRelayClient(c.Relay, conf)
