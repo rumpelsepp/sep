@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"time"
@@ -36,7 +37,7 @@ const (
 // 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 // )
 
-var Logger = rlog.NewLogger()
+var Logger = rlog.NewLogger(ioutil.Discard)
 
 func init() {
 	Logger.SetModule("[sep]")

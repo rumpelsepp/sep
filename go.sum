@@ -1,7 +1,7 @@
 git.sr.ht/~rumpelsepp/ni v0.0.0-20190729113949-63514ff94540 h1:sHqYcrsvqbdNGSSL+cms6Y+fjU7BOhwvXlhVYjmwfHg=
 git.sr.ht/~rumpelsepp/ni v0.0.0-20190729113949-63514ff94540/go.mod h1:kNcj7wXuMTLl4ko4yR3fK/Yar1IVDUBTr6rbt5yLf6k=
-git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826082545-74500716e59e h1:wLjT0+TOeKS9glFJA5xs0VLZbFDlWe+8UnoDh53USzc=
-git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826082545-74500716e59e/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
+git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826091145-a50111d2adbe h1:Ld8Izl9dfsxn4bK2xcijL6dv3S7vWoU2/tVxvLQntCU=
+git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826091145-a50111d2adbe/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
 github.com/fxamacker/cbor v0.1.0 h1:vJ5HPBRlRtakqHF2/GWlT5qsjO5ZpHaurf7iSdV57oI=
 github.com/fxamacker/cbor v0.1.0/go.mod h1:QoJqAv+d8/zS8c51F67F1NpasNGDv68x6I0hC7UpjDI=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=

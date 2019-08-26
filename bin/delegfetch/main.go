@@ -68,7 +68,7 @@ func main() {
 	tlsConfig := sep.NewDefaultTLSConfig(keypair)
 	config := sep.Config{
 		AllowedPeers: []*sep.Fingerprint{delegator},
-		Directory:    &dirClient,
+		Directory:    dirClient,
 		TLSConfig:    tlsConfig,
 	}
 	dialer, err := sep.NewDialer("tcp", config)
