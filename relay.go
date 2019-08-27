@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/fxamacker/cbor"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -50,9 +49,7 @@ func (m *RelayMessage) digest() []byte {
 	res = append(res, m.PubKey...)
 	res = append(res, m.Version)
 
-	digest := sha3.Sum256([]byte(res))
-
-	return digest[:]
+	return internalDigest([]byte(res))
 }
 
 //  SHA3-256(Type | Initiator | Target | Timestamp | Nonce | PubKey)
@@ -94,9 +91,8 @@ func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
 }
 
 func (m *RelayMessage) CheckSignature(fingerprint *Fingerprint) (bool, error) {
-	digest := sha3.Sum256(m.PubKey)
-
-	if !bytes.Equal(digest[:], fingerprint.Bytes()[1:]) {
+	digest := internalDigest(m.PubKey)
+	if !bytes.Equal(digest, fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
 

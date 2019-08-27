@@ -22,8 +22,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-
-	"golang.org/x/crypto/sha3"
 )
 
 type DirectoryOptions struct {
@@ -70,9 +68,8 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 
 	res = append(res, a.Timestamp...)
 	res = append(res, a.PubKey...)
-	digest := sha3.Sum256([]byte(res))
 
-	return digest[:], nil
+	return internalDigest([]byte(res)), nil
 }
 
 // Sign appends a base64-encoded signature, current timestamp and public key to
@@ -120,8 +117,8 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 // for signing matches the given fingerprint.
 func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	// Verify hash of public key against fingerprint
-	digestKey := sha3.Sum256(a.PubKey)
-	if !bytes.Equal(digestKey[:], fingerprint.Bytes()[1:]) {
+	digestKey := internalDigest(a.PubKey)
+	if !bytes.Equal(digestKey, fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
 
