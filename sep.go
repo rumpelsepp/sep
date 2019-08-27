@@ -1,8 +1,6 @@
 package sep
 
 import (
-	"bytes"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -13,7 +11,6 @@ import (
 	"time"
 
 	"git.sr.ht/~rumpelsepp/rlog"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -190,42 +187,20 @@ func VerifierAllowAll(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) e
 }
 
 func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SepVerifier {
-	allowedDigests := make([][]byte, len(allowed))
-
-	for i, peer := range allowed {
-		// TODO
-		allowedDigests[i] = peer.Bytes()[1:]
-	}
-
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		for _, cert := range rawCerts {
-			parsedCert, err := x509.ParseCertificate(cert)
+			remoteFP, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite, "")
 			if err != nil {
 				return err
 			}
 
-			// FIXME: MUST NOT panic
-			pubkey := parsedCert.PublicKey.(*ecdsa.PublicKey)
-			pubkeyDer, err := x509.MarshalPKIXPublicKey(pubkey)
-			if err != nil {
-				return err
-			}
-
-			remoteDigest := sha3.Sum256(pubkeyDer)
-
-			for _, allowedDigest := range allowedDigests {
-				if bytes.Equal(remoteDigest[:], allowedDigest) {
+			for _, fp := range allowed {
+				if FingerprintIsEqual(remoteFP, fp) {
 					return nil
 				}
 			}
-
-			fingerprint, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite, DefaultResolveDomain)
-			if err != nil {
-				return err
-			}
-
 			if database != nil {
-				if database.IsTrusted(fingerprint) {
+				if database.IsTrusted(remoteFP) {
 					return nil
 				}
 			}
