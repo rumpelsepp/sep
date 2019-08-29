@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/crypto/sha3"
 	"golang.org/x/xerrors"
 )
 
@@ -392,4 +393,9 @@ func AddAuthorizedFingerprint(path string, fingerprint *Fingerprint, alias strin
 	file.WriteString(fmt.Sprintf("%s\t%s\n", fingerprint.String(), alias))
 
 	return nil
+}
+
+func internalDigest(p []byte) []byte {
+	digest := sha3.Sum256(p)
+	return digest[:]
 }
