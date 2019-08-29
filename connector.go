@@ -9,10 +9,20 @@ import (
 	"golang.org/x/xerrors"
 )
 
+const (
+	// flags == 0 means default, ergo all connectors are enabled
+	ConnectorFlagDefault = iota
+	ConnectorFlagDialDirect
+	ConnectorFlagListenDirect
+	ConnectorFlagDialRelay
+	ConnectorFlagListenRelay
+)
+
 type Connector struct {
 	Config     Config
 	Relay      *Fingerprint
 	ListenAddr string
+	Flags      int
 
 	resultCh chan internalConn
 	errCh    chan error
@@ -166,10 +176,18 @@ func (c *Connector) Connect(target *Fingerprint, timeout time.Duration) (Conn, e
 		ctx = context.Background()
 	}
 
-	go c.listenAndAccept(ctx)
-	go c.listenAndAcceptRelay(ctx)
-	go c.dial(ctx, target)
-	go c.dialRelay(ctx, target)
+	if c.Flags&ConnectorFlagDialDirect != 0 || c.Flags == ConnectorFlagDefault {
+		go c.dial(ctx, target)
+	}
+	if c.Flags&ConnectorFlagListenDirect != 0 || c.Flags == ConnectorFlagDefault {
+		go c.listenAndAccept(ctx)
+	}
+	if c.Flags&ConnectorFlagDialRelay != 0 || c.Flags == ConnectorFlagDefault {
+		go c.dialRelay(ctx, target)
+	}
+	if c.Flags&ConnectorFlagListenRelay != 0 || c.Flags == ConnectorFlagDefault {
+		go c.listenAndAcceptRelay(ctx)
+	}
 
 	var (
 		conns []internalConn
@@ -183,6 +201,9 @@ func (c *Connector) Connect(target *Fingerprint, timeout time.Duration) (Conn, e
 			if conn.prio == 0 {
 				return conn.conn, nil
 			}
+			// If there is only a relayed network connection,
+			// then wait for a few moments. Maybe a direct
+			// connection can be established and prioritized…
 			if t == nil {
 				t = time.AfterFunc(10*time.Second, cancel)
 			}
