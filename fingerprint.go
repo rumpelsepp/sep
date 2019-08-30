@@ -27,15 +27,6 @@ func checkDigest(digest string) error {
 
 }
 
-func reverseBytes(b []byte) []byte {
-	r := make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		r[i] = b[len(b)-1-i]
-	}
-
-	return r
-}
-
 // FingerprintIsEqual checks whether two fingerprints are identical.
 // The check is based on the hash of the public key and the used algorithm.
 // This means two fingerprints based on the same public key but with different
@@ -135,8 +126,6 @@ func (fp *Fingerprint) FQDN() string {
 		labelBytes = 16
 		fullLabels = len(digest) / labelBytes
 	)
-
-	digest = reverseBytes(digest)
 
 	for i := 0; i < fullLabels; i++ {
 		s := fmt.Sprintf("%x", digest[i*labelBytes:((i+1)*labelBytes)])
