@@ -15,25 +15,10 @@ type Fingerprint struct {
 }
 
 func checkDigest(digest string) error {
-	switch digest {
-	case "sha-256", "sha-384", "sha-512", "sha3-224", "sha3-256", "sha3-384", "sha3-512":
+	if digest == "sha3-256" {
 		return nil
-
-	case "sha-256-128", "sha-256-120", "sha-256-96", "sha-256-64", "sha-256-32":
-		return fmt.Errorf("truncated suites are not supported")
 	}
-
 	return fmt.Errorf("suite %s is not implemented", digest)
-
-}
-
-func reverseBytes(b []byte) []byte {
-	r := make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		r[i] = b[len(b)-1-i]
-	}
-
-	return r
 }
 
 // FingerprintIsEqual checks whether two fingerprints are identical.
@@ -79,8 +64,7 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 // FingerprintFromPublicKey transforms a DER-encoded public key to a fingerprint.
 // This is done by hashing the public key with the specified suite and inserting
 // the given authority.
-// These suites are supported:
-// 		sha3-256 ,sha3-384 ,sha3-512
+// These suites are supported sha3-256
 func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
 	var digest []byte
 
@@ -88,20 +72,12 @@ func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fing
 		return nil, fmt.Errorf("not a valid der-encoded PublicKey")
 	}
 
-	switch suite {
-	case "sha3-256":
+	if suite == "sha3-256" {
 		d := sha3.Sum256(pubKey)
 		digest = d[:]
-	case "sha3-384":
-		d := sha3.Sum384(pubKey)
-		digest = d[:]
-	case "sha3-512":
-		d := sha3.Sum512(pubKey)
-		digest = d[:]
-	default:
+	} else {
 		return nil, ni.ErrSuiteNotSupported
 	}
-
 	if domain == "" {
 		domain = DefaultResolveDomain
 	}
@@ -135,8 +111,6 @@ func (fp *Fingerprint) FQDN() string {
 		labelBytes = 16
 		fullLabels = len(digest) / labelBytes
 	)
-
-	digest = reverseBytes(digest)
 
 	for i := 0; i < fullLabels; i++ {
 		s := fmt.Sprintf("%x", digest[i*labelBytes:((i+1)*labelBytes)])
