@@ -33,7 +33,7 @@ type DelegatorNode struct {
 func NewDelegatorNode(conn Conn) *DelegatorNode {
 	return &DelegatorNode{
 		Conn:    conn,
-		Encoder: cbor.NewEncoder(conn, cbor.EncOptions{Canonical: true}),
+		Encoder: cbor.NewEncoder(conn, cborEncodingOpts),
 		Decoder: cbor.NewDecoder(conn),
 	}
 }

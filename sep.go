@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"git.sr.ht/~rumpelsepp/rlog"
+	"github.com/fxamacker/cbor"
 )
 
 const (
@@ -34,7 +35,10 @@ const (
 // 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 // )
 
-var Logger = rlog.NewLogger(ioutil.Discard)
+var (
+	cborEncodingOpts = cbor.EncOptions{Canonical: true, TimeRFC3339: true}
+	Logger           = rlog.NewLogger(ioutil.Discard)
+)
 
 func init() {
 	Logger.SetModule("[sep]")
