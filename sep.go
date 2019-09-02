@@ -180,13 +180,13 @@ var tlsCipherSuiteNames = map[uint16]string{
 	0xcca9: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
 }
 
-type SepVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+type SEPVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 
 func VerifierAllowAll(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	return nil
 }
 
-func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SepVerifier {
+func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SEPVerifier {
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		for _, cert := range rawCerts {
 			remoteFP, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite, "")
