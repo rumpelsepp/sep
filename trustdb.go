@@ -13,8 +13,8 @@ type TrustDatabase interface {
 }
 
 type MemoryDB struct {
-	data  map[string]entry
-	mutex sync.Mutex
+	data map[string]entry
+	rw   sync.RWMutex
 }
 
 type entry struct {
@@ -29,8 +29,8 @@ func NewMemoryDB() *MemoryDB {
 }
 
 func (db *MemoryDB) AddPeer(fingerprint *Fingerprint, ttl time.Duration) error {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+	db.rw.Lock()
+	defer db.rw.Unlock()
 
 	if _, ok := db.data[fingerprint.Canonical()]; ok {
 		return fmt.Errorf("%s is already known", fingerprint.Canonical())
@@ -43,15 +43,15 @@ func (db *MemoryDB) AddPeer(fingerprint *Fingerprint, ttl time.Duration) error {
 }
 
 func (db *MemoryDB) DelPeer(fingerprint *Fingerprint) error {
-	db.mutex.Lock()
+	db.rw.Lock()
 	delete(db.data, fingerprint.Canonical())
-	db.mutex.Unlock()
+	db.rw.Unlock()
 	return nil
 }
 
 func (db *MemoryDB) IsTrusted(fingerprint *Fingerprint) bool {
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
+	db.rw.RLock()
+	defer db.rw.RUnlock()
 
 	if val, ok := db.data[fingerprint.Canonical()]; ok {
 		if time.Since(val.timestamp) > val.ttl {

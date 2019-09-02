@@ -142,10 +142,6 @@ func NewDialer(transport string, config Config) (Dialer, error) {
 	case "tcp":
 		dialer = newTCPDialer(config)
 
-	// TODO: reintroduce this when stable
-	// case "quic":
-	// 	dialer = newQuicDialer(config)
-
 	default:
 		return nil, fmt.Errorf("transport is not supported")
 	}
