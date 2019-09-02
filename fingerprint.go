@@ -95,7 +95,6 @@ func FingerprintFromRawNI(niURL *ni.URL) (*Fingerprint, error) {
 	if err := checkDigest(niURL.Alg); err != nil {
 		return nil, err
 	}
-
 	return &Fingerprint{niURL}, nil
 }
 
@@ -129,6 +128,20 @@ func (fp *Fingerprint) FQDN() string {
 	fqdn.WriteString(fp.URL.Authority)
 
 	return fqdn.String()
+}
+
+// Canonical returns a string representation of the Fingerprint with an
+// empty authority. This form is intended to be used internally e.g. for
+// map or database keys, since the authority carries no relevant information
+// for authentication.
+func (fp *Fingerprint) Canonical() string {
+	newFP, _ := ni.ParseNI(fmt.Sprintf("ni:///%s;%s", fp.URL.Alg, fp.URL.Val))
+	return newFP.String()
+}
+
+// Short returns a short string describing the node. Useful for logs.
+func (fp *Fingerprint) Short() string {
+	return fmt.Sprintf("%s", fp.URL.Val[:8])
 }
 
 // WellKnownURI returns the WellKnown representation of a fingerprint.

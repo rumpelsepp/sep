@@ -45,15 +45,12 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	}
 
 	Logger.Debugf(
-		"established %s: %s <-> %s",
+		"connected %s: %s [%s] <-> %s [%s]",
 		tlsCipherSuiteNames[state.CipherSuite],
 		conn.LocalAddr(),
+		localFingerprint.Short(),
 		conn.RemoteAddr(),
-	)
-	Logger.Debugf(
-		" => %s <-> %s",
-		localFingerprint.String(),
-		remoteFingerprint.String(),
+		remoteFingerprint.Short(),
 	)
 
 	return &TCPConn{
@@ -263,9 +260,6 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 			Logger.Debugln(err)
 			continue
 		}
-
-		// When the loop reaches this point, there is a connection.
-		Logger.Debugf("established SEP connection to: %s", c.RemoteAddr())
 
 		return c, nil
 	}

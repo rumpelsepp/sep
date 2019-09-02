@@ -32,21 +32,20 @@ func (db *MemoryDB) AddPeer(fingerprint *Fingerprint, ttl time.Duration) error {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	if _, ok := db.data[fingerprint.String()]; ok {
-		return fmt.Errorf("%s is already known", fingerprint.String())
+	if _, ok := db.data[fingerprint.Canonical()]; ok {
+		return fmt.Errorf("%s is already known", fingerprint.Canonical())
 	}
 
-	db.data[fingerprint.String()] = entry{timestamp: time.Now(), ttl: ttl}
-	Logger.Debugf("new dynamically trusted peer: %s", fingerprint.String())
+	db.data[fingerprint.Canonical()] = entry{timestamp: time.Now(), ttl: ttl}
+	Logger.Debugf("new dynamically trusted peer: %s", fingerprint.Canonical())
 
 	return nil
 }
 
 func (db *MemoryDB) DelPeer(fingerprint *Fingerprint) error {
 	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	delete(db.data, fingerprint.String())
+	delete(db.data, fingerprint.Canonical())
+	db.mutex.Unlock()
 	return nil
 }
 
@@ -54,10 +53,10 @@ func (db *MemoryDB) IsTrusted(fingerprint *Fingerprint) bool {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	if val, ok := db.data[fingerprint.String()]; ok {
+	if val, ok := db.data[fingerprint.Canonical()]; ok {
 		if time.Since(val.timestamp) > val.ttl {
-			delete(db.data, fingerprint.String())
-			Logger.Debugf("trusted peer timed out: %s", fingerprint.String())
+			delete(db.data, fingerprint.Canonical())
+			Logger.Debugf("trusted peer timed out: %s", fingerprint.Canonical())
 			return false
 		}
 		return true
