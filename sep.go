@@ -88,10 +88,6 @@ func Listen(network, address string, config Config) (Listener, error) {
 	case "tcp", "tcp4", "tcp6":
 		listener, err = tcpListen(network, address, &config)
 
-	// TODO: reintroduce this when stable
-	// case "quic":
-	// 	listener, err = quicListen(address, &config)
-
 	default:
 		panic("transport is not supported")
 	}
