@@ -19,7 +19,7 @@ type runtimeOptions struct {
 }
 
 func main() {
-	homeDir, err := sep.UserConfigDir()
+	homeDir, err := os.UserConfigDir()
 	if err != nil {
 		rlog.Critln(err)
 	}

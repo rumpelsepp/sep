@@ -1,4 +1,4 @@
-image: golang:1.13-rc
+image: golang:1.13
 
 stages:
   - build
