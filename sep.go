@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"git.sr.ht/~rumpelsepp/rlog"
+	"github.com/fxamacker/cbor"
 )
 
 const (
@@ -34,7 +35,10 @@ const (
 // 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
 // )
 
-var Logger = rlog.NewLogger(ioutil.Discard)
+var (
+	cborEncodingOpts = cbor.EncOptions{Canonical: true, TimeRFC3339: true}
+	Logger           = rlog.NewLogger(ioutil.Discard)
+)
 
 func init() {
 	Logger.SetModule("[sep]")
@@ -83,10 +87,6 @@ func Listen(network, address string, config Config) (Listener, error) {
 	switch network {
 	case "tcp", "tcp4", "tcp6":
 		listener, err = tcpListen(network, address, &config)
-
-	// TODO: reintroduce this when stable
-	// case "quic":
-	// 	listener, err = quicListen(address, &config)
 
 	default:
 		panic("transport is not supported")
@@ -138,10 +138,6 @@ func NewDialer(transport string, config Config) (Dialer, error) {
 	case "tcp":
 		dialer = newTCPDialer(config)
 
-	// TODO: reintroduce this when stable
-	// case "quic":
-	// 	dialer = newQuicDialer(config)
-
 	default:
 		return nil, fmt.Errorf("transport is not supported")
 	}
@@ -180,13 +176,13 @@ var tlsCipherSuiteNames = map[uint16]string{
 	0xcca9: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
 }
 
-type SepVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+type SEPVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 
 func VerifierAllowAll(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	return nil
 }
 
-func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SepVerifier {
+func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SEPVerifier {
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		for _, cert := range rawCerts {
 			remoteFP, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite, "")

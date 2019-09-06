@@ -33,7 +33,7 @@ func mndBroadcastRequest(payload *DirectoryRecordSet) {
 			continue
 		}
 
-		encoder := cbor.NewEncoder(conn, cbor.EncOptions{Canonical: true})
+		encoder := cbor.NewEncoder(conn, cborEncodingOpts)
 		if err := encoder.Encode(payload); err != nil {
 			Logger.Warningf("%v", err)
 			continue
@@ -151,7 +151,7 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 	// This is an length check of the resulting record, arbitrarily set to 500
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	encoder := cbor.NewEncoder(writer, cbor.EncOptions{Canonical: true})
+	encoder := cbor.NewEncoder(writer, cborEncodingOpts)
 	if err := encoder.Encode(m.payload); err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 			m.payload.TTL = 5
 			m.payload.Sign(m.privateKey)
 
-			encoder := cbor.NewEncoder(respConn, cbor.EncOptions{Canonical: true})
+			encoder := cbor.NewEncoder(respConn, cborEncodingOpts)
 			if err := encoder.Encode(m.payload); err != nil {
 				Logger.Warning(err)
 				continue

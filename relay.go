@@ -207,7 +207,7 @@ func (c *RelayClient) Dial(target *Fingerprint) (Conn, error) {
 
 	relay := RelayNode{
 		Conn:    relayConn,
-		Encoder: cbor.NewEncoder(relayConn, cbor.EncOptions{Canonical: true}),
+		Encoder: cbor.NewEncoder(relayConn, cborEncodingOpts),
 		Decoder: cbor.NewDecoder(relayConn),
 		Keypair: c.config.TLSConfig.Certificates[0],
 		Trusted: append(c.config.AllowedPeers, c.relay),
@@ -246,7 +246,7 @@ func (c *RelayClient) Accept() (Conn, error) {
 
 	relay := RelayNode{
 		Conn:    relayConn,
-		Encoder: cbor.NewEncoder(relayConn, cbor.EncOptions{Canonical: true}),
+		Encoder: cbor.NewEncoder(relayConn, cborEncodingOpts),
 		Decoder: cbor.NewDecoder(relayConn),
 		Keypair: c.config.TLSConfig.Certificates[0],
 		Trusted: append(c.config.AllowedPeers, c.relay),
