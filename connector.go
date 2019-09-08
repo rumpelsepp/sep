@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -38,7 +36,7 @@ func (c *Connector) listenAndAccept(ctx context.Context) {
 
 	ln, err := Listen("tcp", c.ListenAddr, c.Config)
 	if err != nil {
-		c.errCh <- xerrors.Errorf("listener Listen(): %w", err)
+		c.errCh <- fmt.Errorf("listener Listen(): %w", err)
 		return
 	}
 
@@ -46,7 +44,7 @@ func (c *Connector) listenAndAccept(ctx context.Context) {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				c.errCh <- xerrors.Errorf("listener Accept(): %w", err)
+				c.errCh <- fmt.Errorf("listener Accept(): %w", err)
 			} else {
 				c.resultCh <- internalConn{conn, 0}
 				break

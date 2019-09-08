@@ -67,7 +67,7 @@ func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 		ClientAuth:             tls.RequireAnyClientCert,
 		SessionTicketsDisabled: true,  // We don't want this.
 		InsecureSkipVerify:     false, // Disable this explicitely!!
-		MinVersion:             tls.VersionTLS12,
+		MinVersion:             tls.VersionTLS13,
 		KeyLogWriter:           keyLogWriter,
 	}
 }

@@ -3,11 +3,9 @@ package sep
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/rand"
+	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -54,19 +52,17 @@ func (m *RelayMessage) digest() []byte {
 
 //  SHA3-256(Type | Initiator | Target | Timestamp | Nonce | PubKey)
 func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
-	var (
-		// FIXME: Do not panic!!!
-		now     = time.Now()
-		privKey = privateKey.(*ecdsa.PrivateKey)
-	)
+	now := time.Now()
+
+	privKey, ok := privateKey.(ed25519.PrivateKey)
+	if !ok {
+		return fmt.Errorf("invalid key")
+	}
 
 	timestamp, err := now.MarshalBinary()
 	if err != nil {
 		return err
 	}
-
-	m.Timestamp = timestamp
-	m.TTL = 10
 
 	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
 	if err != nil {
@@ -74,18 +70,9 @@ func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
 	}
 
 	m.PubKey = derPubKey
-
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, m.digest())
-	if err != nil {
-		return err
-	}
-
-	signature, err := asn1.Marshal(ecdsaSignature{r, s})
-	if err != nil {
-		return err
-	}
-
-	m.Signature = signature
+	m.Signature = ed25519.Sign(privKey, m.digest())
+	m.Timestamp = timestamp
+	m.TTL = 10
 
 	return nil
 }
@@ -101,15 +88,12 @@ func (m *RelayMessage) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 		return false, err
 	}
 
-	var signature ecdsaSignature
-	if _, err := asn1.Unmarshal(m.Signature, &signature); err != nil {
-		return false, err
+	remotePubKey, ok := remotePK.(ed25519.PublicKey)
+	if !ok {
+		return false, fmt.Errorf("invalid key")
 	}
 
-	// FIXME: don't panic
-	remotePubKey := remotePK.(*ecdsa.PublicKey)
-
-	if ok := ecdsa.Verify(remotePubKey, m.digest(), signature.R, signature.S); !ok {
+	if ok := ed25519.Verify(remotePubKey, m.digest(), m.Signature); !ok {
 		return false, nil
 	}
 
