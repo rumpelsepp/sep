@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -21,8 +20,6 @@ import (
 	"text/template"
 	"time"
 )
-
-var ErrInvalidKey = errors.New("invalid key: only ed25519 keys are supported")
 
 type DirectoryOptions struct {
 	DNSTTL    int    `json:"dns_ttl"`

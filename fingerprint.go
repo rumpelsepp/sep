@@ -2,6 +2,7 @@ package sep
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/x509"
 	"fmt"
 	"strings"
@@ -48,7 +49,6 @@ func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fing
 
 // FingerprintFromNIString parses an NI string to type fingerprint.
 func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
-	// TODO: ni.Parse
 	niURL, err := ni.ParseNI(rawFingerprint)
 	if err != nil {
 		return nil, err
@@ -64,12 +64,16 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 // FingerprintFromPublicKey transforms a DER-encoded public key to a fingerprint.
 // This is done by hashing the public key with the specified suite and inserting
 // the given authority.
-// These suites are supported sha3-256
+// These suites are supported: sha3-256
 func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
 	var digest []byte
 
-	if _, err := x509.ParsePKIXPublicKey(pubKey); err != nil {
-		return nil, fmt.Errorf("not a valid der-encoded PublicKey")
+	if parsedPubKey, err := x509.ParsePKIXPublicKey(pubKey); err == nil {
+		if _, ok := parsedPubKey.(ed25519.PublicKey); !ok {
+			return nil, ErrInvalidKey
+		}
+	} else {
+		return nil, fmt.Errorf("PublicKey: invalid der-encoding")
 	}
 
 	if suite == "sha3-256" {

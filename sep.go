@@ -3,6 +3,7 @@ package sep
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -38,6 +39,7 @@ const (
 var (
 	cborEncodingOpts = cbor.EncOptions{Canonical: true, TimeRFC3339: true}
 	Logger           = rlog.NewLogger(ioutil.Discard)
+	ErrInvalidKey    = errors.New("invalid key: only ed25519 keys are supported")
 )
 
 func init() {
