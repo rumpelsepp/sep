@@ -29,7 +29,7 @@ type RelayMessage struct {
 	Initiator string
 	Target    string
 	TTL       uint16
-	Timestamp []byte
+	Timestamp time.Time
 	PubKey    []byte
 	Signature []byte
 }
@@ -42,7 +42,7 @@ func (m *RelayMessage) digest() []byte {
 	res = append(res, m.Type)
 	res = append(res, []byte(m.Initiator)...)
 	res = append(res, []byte(m.Target)...)
-	res = append(res, m.Timestamp...)
+	res = append(res, []byte(m.Timestamp.Format(time.RFC3339))...)
 	res = append(res, ttlBin...)
 	res = append(res, m.PubKey...)
 	res = append(res, m.Version)
@@ -50,18 +50,11 @@ func (m *RelayMessage) digest() []byte {
 	return internalDigest([]byte(res))
 }
 
-//  SHA3-256(Type | Initiator | Target | Timestamp | Nonce | PubKey)
+//  SHA3-256(Type | Initiator | Target | Timestamp | PubKey)
 func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
-	now := time.Now()
-
 	privKey, ok := privateKey.(ed25519.PrivateKey)
 	if !ok {
 		return fmt.Errorf("invalid key")
-	}
-
-	timestamp, err := now.MarshalBinary()
-	if err != nil {
-		return err
 	}
 
 	derPubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
@@ -70,9 +63,9 @@ func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
 	}
 
 	m.PubKey = derPubKey
-	m.Signature = ed25519.Sign(privKey, m.digest())
-	m.Timestamp = timestamp
+	m.Timestamp = time.Now()
 	m.TTL = 10
+	m.Signature = ed25519.Sign(privKey, m.digest())
 
 	return nil
 }
@@ -97,12 +90,7 @@ func (m *RelayMessage) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 		return false, nil
 	}
 
-	var timestamp time.Time
-	if err := timestamp.UnmarshalBinary(m.Timestamp); err != nil {
-		return false, err
-	}
-
-	if time.Since(timestamp) > time.Duration(m.TTL)*time.Second {
+	if time.Since(m.Timestamp) > time.Duration(m.TTL)*time.Second {
 		return false, fmt.Errorf("ttl expired")
 	}
 
