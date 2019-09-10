@@ -201,6 +201,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 			DisableCompression: true,
 			TLSClientConfig:    NewDefaultTLSConfig(*keypair),
 		},
+		Timeout: 10 * time.Second,
 	}
 
 	return &DirectoryClient{
