@@ -16,7 +16,6 @@ type TCPConn struct {
 	config            *Config
 	localFingerprint  *Fingerprint
 	remoteFingerprint *Fingerprint
-	alp               string
 }
 
 func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
@@ -32,7 +31,6 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	}
 
 	state := conn.ConnectionState()
-	alp := state.NegotiatedProtocol
 
 	localFingerprint, err := FingerprintFromCertificate(config.TLSConfig.Certificates[0].Certificate[0], DefaultFingerprintSuite, DefaultResolveDomain)
 	if err != nil {
@@ -55,7 +53,6 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 
 	return &TCPConn{
 		tlsConn:           conn,
-		alp:               alp,
 		config:            config,
 		localFingerprint:  localFingerprint,
 		remoteFingerprint: remoteFingerprint,
@@ -126,10 +123,6 @@ func (c *TCPConn) RemoteFingerprint() *Fingerprint {
 
 func (c *TCPConn) LocalFingerprint() *Fingerprint {
 	return c.localFingerprint
-}
-
-func (c *TCPConn) ALP() string {
-	return c.alp
 }
 
 type tcpListener struct {

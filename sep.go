@@ -20,8 +20,6 @@ const (
 	DefaultFingerprintSuite = "sha3-256"
 	DefaultResolveDomain    = "ace-sep.de"
 	DefaultDoHURI           = "https://cloudflare-dns.com/dns-query?name=%s&type=TXT"
-	AlpSEP                  = "SEP/0"
-	AlpSEPRelay             = "SEP-RELAY/0"
 
 	// DefaultMNDDiscoverPort is where packets are sent to during MND Discovery
 	DefaultMNDDiscoverPort = "7868"
