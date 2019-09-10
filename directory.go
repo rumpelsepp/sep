@@ -57,13 +57,9 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 
 	ttlBin := make([]byte, 8)
 	binary.LittleEndian.PutUint64(ttlBin, uint64(a.TTL))
-	res = append(res, ttlBin...)
 
-	timeBin, err := a.Timestamp.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	res = append(res, timeBin...)
+	res = append(res, ttlBin...)
+	res = append(res, []byte(a.Timestamp.Format(time.RFC3339))...)
 	res = append(res, a.PubKey...)
 
 	return internalDigest([]byte(res)), nil
@@ -141,23 +137,15 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 // Pretty generates a nice, human readable representation of the RecordSet.
 // This is useful for debugging.
 func (a *DirectoryRecordSet) Pretty() string {
-	funcs := template.FuncMap{
-		"unmarshalTimestamp": func(in []byte) string {
-			var b time.Time
-			b.UnmarshalBinary(in)
-			return b.String()
-		},
-	}
-
 	tpl := `Addresses : {{range $i, $v := .Addresses}}{{$v}} {{end}}
 Relays    : {{range $i, $v := .Relays}}{{$v}}{{end}}
 Blob      : {{if .Blob}}{{.Blob | printf "%.33x…"}}{{end}}
-Timestamp : {{unmarshalTimestamp .Timestamp}}
+Timestamp : {{.Timestamp}}
 TTL       : {{.TTL}}
 PubKey    : {{.PubKey | printf "%.33x…"}}
 Signature : {{.Signature | printf "%.33x…"}}`
 	var builder strings.Builder
-	t := template.Must(template.New("pretty").Funcs(funcs).Parse(tpl))
+	t := template.Must(template.New("pretty").Parse(tpl))
 	if err := t.Execute(&builder, a); err != nil {
 		panic(err)
 	}

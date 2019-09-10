@@ -1,6 +1,6 @@
 GO ?= go
 
-all: blobber delegfetch sepdir
+all: blobber delegfetch keygen sepdir
 
 blobber:
 	$(GO) build $(GOFLAGS) -o $@/$@ $@/*.go
@@ -8,7 +8,10 @@ blobber:
 delegfetch:
 	$(GO) build $(GOFLAGS) -o $@/$@ $@/*.go
 
+keygen:
+	$(GO) build $(GOFLAGS) -o $@/$@ $@/*.go
+
 sepdir:
 	$(GO) build $(GOFLAGS) -o $@/$@ $@/*.go
 
-.PHONY: all delegfetch blobber sepdir
+.PHONY: all delegfetch blobber keygen sepdir

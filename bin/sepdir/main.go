@@ -16,8 +16,6 @@ type runtimeOptions struct {
 	put       bool
 	query     bool
 	debug     bool
-	genKey    bool
-	show      bool
 	help      bool
 }
 
@@ -30,15 +28,15 @@ func main() {
 	opts := runtimeOptions{}
 	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Directory API server location")
 	getopt.BoolVar(&opts.query, "q", false, "Query directory for record set of given fingerprint")
-	getopt.BoolVar(&opts.genKey, "g", false, "Generate a new keypair")
 	getopt.BoolVar(&opts.put, "p", false, "Put record set to directory and exit")
-	getopt.BoolVar(&opts.show, "s", false, "Show own fingerprint")
 	getopt.BoolVar(&opts.debug, "v", false, "Print debug output")
 	getopt.BoolVar(&opts.help, "h", false, "Show help page and exit")
 	getopt.Parse()
 
 	if opts.debug {
 		rlog.SetLogLevel(rlog.DEBUG)
+		sep.Logger.SetWriter(os.Stderr)
+		sep.Logger.SetLogLevel(rlog.DEBUG)
 	}
 
 	var (
@@ -50,13 +48,6 @@ func main() {
 	if opts.help {
 		getopt.Usage()
 		os.Exit(0)
-	}
-
-	if opts.genKey {
-		err := sep.GenKeypairFile(keyPath, certPath)
-		if err != nil {
-			rlog.Critln(err)
-		}
 	}
 
 	keypair, err := tls.LoadX509KeyPair(certPath, keyPath)

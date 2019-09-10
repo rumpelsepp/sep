@@ -2,6 +2,8 @@ git.sr.ht/~rumpelsepp/ni v0.0.0-20190729113949-63514ff94540 h1:sHqYcrsvqbdNGSSL+
 git.sr.ht/~rumpelsepp/ni v0.0.0-20190729113949-63514ff94540/go.mod h1:kNcj7wXuMTLl4ko4yR3fK/Yar1IVDUBTr6rbt5yLf6k=
 git.sr.ht/~rumpelsepp/ni v0.0.0-20190902131131-1c4979f26551 h1:vOe/8V5O0UIVMRcKxFhUSvdVCPQ8EjBTvj3Npttslf0=
 git.sr.ht/~rumpelsepp/ni v0.0.0-20190902131131-1c4979f26551/go.mod h1:kNcj7wXuMTLl4ko4yR3fK/Yar1IVDUBTr6rbt5yLf6k=
+git.sr.ht/~rumpelsepp/ni v0.0.0-20190908142248-6f01ba11c9b7 h1:hF9e2L/sUkVAXMXjFD/NPjfPqNABGj5FOCS/FJ8FQe0=
+git.sr.ht/~rumpelsepp/ni v0.0.0-20190908142248-6f01ba11c9b7/go.mod h1:uOBYBCn6ySi+zqjRZVdioWfGjX5fYwKsMKLxMBQXzJU=
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20190801194942-a1af5637e843/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20190804161331-e11d5ebac5b0 h1:EElJ8GSz25mAFWcrSENIfjd4hbLz52GJ1Yj/jtTfTs8=
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20190804161331-e11d5ebac5b0/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
@@ -39,6 +41,8 @@ golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586 h1:7KByu05hhLed2MO29w7p1X
 golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472 h1:Gv7RPwsi3eZ2Fgewe3CBsuOebPwO27PoXzRpJPsvSSM=
 golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
+golang.org/x/crypto v0.0.0-20190907121410-71b5226ff739 h1:Gc7JIyxvWgD6m+QmVryY0MstDORNYididDGxgZ6Tnpk=
+golang.org/x/crypto v0.0.0-20190907121410-71b5226ff739/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 h1:0GoQqolDA55aaLxZyTzK/Y2ePZzZTUrRacwib7cNsYQ=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
@@ -51,6 +55,8 @@ golang.org/x/sys v0.0.0-20190825160603-fb81701db80f h1:LCxigP8q3fPRGNVYndYsyHnF0
 golang.org/x/sys v0.0.0-20190825160603-fb81701db80f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190902133755-9109b7679e13 h1:tdsQdquKbTNMsSZLqnLELJGzCANp9oXhu6zFBW6ODx4=
 golang.org/x/sys v0.0.0-20190902133755-9109b7679e13/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20190907184412-d223b2b6db03 h1:b3JiLYVaG9kHjTcOQIoUh978YMCO7oVTQQBLudU47zY=
+golang.org/x/sys v0.0.0-20190907184412-d223b2b6db03/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 h1:9zdDQZ7Thm29KFXgAX/+yaf3eVbP7djjWp/dXAppNCc=
