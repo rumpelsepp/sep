@@ -152,6 +152,13 @@ Signature : {{.Signature | printf "%.33x…"}}`
 	return builder.String()
 }
 
+// Fingerprint returns the canonical fingerprint which is associated with
+// this RecordSet instance. It errors out if the PubKey record is empty or invalid.
+// The returned fingerprint is always canonical.
+func (rs *DirectoryRecordSet) Fingerprint() (*Fingerprint, error) {
+	return FingerprintFromPublicKey(rs.PubKey, DefaultFingerprintSuite, "")
+}
+
 const (
 	// DiscoverFlagUseDNS defines whether system DNS is used during discovery
 	DiscoverFlagUseDNS = 1 << iota
