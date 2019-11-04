@@ -50,7 +50,7 @@ func main() {
 			rlog.Critln(err)
 		}
 
-		ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0], sep.DefaultFingerprintSuite, sep.DefaultResolveDomain)
+		ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0])
 		if err != nil {
 			rlog.Critln(err)
 		}

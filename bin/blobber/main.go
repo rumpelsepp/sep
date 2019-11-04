@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
 	"git.sr.ht/~sircmpwn/getopt"
 )
@@ -12,13 +13,21 @@ import (
 type runtimeOptions struct {
 	directory string
 	fetch     string
+	verbose   bool
 }
 
 func main() {
 	opts := runtimeOptions{}
 	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Domain of Directory")
 	getopt.StringVar(&opts.fetch, "f", "", "Fetch this Blob and print to stdout")
+	getopt.BoolVar(&opts.verbose, "v", false, "Enable debug log")
 	getopt.Parse()
+
+	if opts.verbose {
+		rlog.SetLogLevel(rlog.DEBUG)
+		sep.Logger.SetWriter(os.Stderr)
+		sep.Logger.SetLogLevel(rlog.DEBUG)
+	}
 
 	keypair, err := sep.GenKeypair()
 	if err != nil {
@@ -61,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0], sep.DefaultFingerprintSuite, opts.directory)
+	ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0])
 	if err != nil {
 		fmt.Println(err)
 	}
