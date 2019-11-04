@@ -39,7 +39,7 @@ type DirectoryRecordSet struct {
 	Options   *DirectoryOptions `json:"options,omitempty"`
 }
 
-func (a *DirectoryRecordSet) digest() ([]byte, error) {
+func (a *DirectoryRecordSet) concat() []byte {
 	var res []byte
 
 	sort.Strings(a.Addresses)
@@ -62,7 +62,7 @@ func (a *DirectoryRecordSet) digest() ([]byte, error) {
 	res = append(res, []byte(a.Timestamp.Format(time.RFC3339))...)
 	res = append(res, a.PubKey...)
 
-	return internalDigest([]byte(res)), nil
+	return res
 }
 
 // Sign appends a base64-encoded signature, current timestamp and public key to
@@ -85,12 +85,7 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 		return err
 	}
 
-	digest, err := a.digest()
-	if err != nil {
-		return err
-	}
-
-	a.Signature = ed25519.Sign(privKey, digest)
+	a.Signature = ed25519.Sign(privKey, a.concat())
 	if err != nil {
 		return err
 	}
@@ -118,12 +113,7 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 		return false, ErrInvalidKey
 	}
 
-	digest, err := a.digest()
-	if err != nil {
-		return false, err
-	}
-
-	if ok := ed25519.Verify(remotePubKey, digest, a.Signature); !ok {
+	if ok := ed25519.Verify(remotePubKey, a.concat(), a.Signature); !ok {
 		return false, nil
 	}
 
