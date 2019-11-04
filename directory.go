@@ -99,6 +99,7 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 	// Verify hash of public key against fingerprint
 	digestKey := internalDigest(a.PubKey)
+
 	if !bytes.Equal(digestKey, fingerprint.Bytes()[1:]) {
 		return false, fmt.Errorf("unexpected public key")
 	}
@@ -229,7 +230,7 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
 		err = a.announceViaHTTPS(payload)
 		if err != nil {
-			Logger.Warningf("announce via HTTPS failed: %s", err)
+			Logger.Warningf("announce via HTTPS failed: %w", err)
 		} else {
 			Logger.Debugf("announce via HTTPS successful")
 		}

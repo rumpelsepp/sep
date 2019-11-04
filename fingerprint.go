@@ -69,7 +69,7 @@ func FingerprintFromPublicKey(pubKey []byte) (*Fingerprint, error) {
 			return nil, ErrInvalidKey
 		}
 	} else {
-		return nil, fmt.Errorf("PublicKey: invalid der-encoding")
+		return nil, fmt.Errorf("PubKey: invalid der-encoding: %w", err)
 	}
 
 	d := internalDigest(pubKey)
