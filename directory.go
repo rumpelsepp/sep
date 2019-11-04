@@ -146,7 +146,7 @@ Signature : {{.Signature | printf "%.33x…"}}`
 // this RecordSet instance. It errors out if the PubKey record is empty or invalid.
 // The returned fingerprint is always canonical.
 func (rs *DirectoryRecordSet) Fingerprint() (*Fingerprint, error) {
-	return FingerprintFromPublicKey(rs.PubKey, DefaultFingerprintSuite, "")
+	return FingerprintFromPublicKey(rs.PubKey)
 }
 
 const (

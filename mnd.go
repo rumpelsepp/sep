@@ -70,7 +70,7 @@ func mndListenForResponse(targetFp *Fingerprint, timeoutDuration time.Duration) 
 				continue
 			}
 
-			respFp, err := FingerprintFromPublicKey(response.PubKey, DefaultFingerprintSuite, "")
+			respFp, err := FingerprintFromPublicKey(response.PubKey)
 			if err != nil {
 				Logger.Debugf("MND discovery got response with non-parsable public key: %s", err)
 				continue
@@ -236,7 +236,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 			Logger.Debugf("MND discover request is addressed to me")
 
 			// Validate packet signature
-			reqFp, err := FingerprintFromPublicKey(requestPayload.PubKey, DefaultFingerprintSuite, "")
+			reqFp, err := FingerprintFromPublicKey(requestPayload.PubKey)
 			if err != nil {
 				Logger.Debugf("MND discover request has non-parsable public key: %s", err)
 				continue

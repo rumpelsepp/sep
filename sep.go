@@ -185,7 +185,7 @@ func VerifierAllowAll(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) e
 func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SEPVerifier {
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		for _, cert := range rawCerts {
-			remoteFP, err := FingerprintFromCertificate(cert, DefaultFingerprintSuite, "")
+			remoteFP, err := FingerprintFromCertificate(cert)
 			if err != nil {
 				return err
 			}

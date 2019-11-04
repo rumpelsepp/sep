@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"git.sr.ht/~rumpelsepp/ni"
-	"golang.org/x/crypto/sha3"
 )
 
 type Fingerprint struct {
@@ -19,7 +18,7 @@ func checkDigest(digest string) error {
 	if digest == "sha3-256" {
 		return nil
 	}
-	return fmt.Errorf("suite %s is not implemented", digest)
+	return fmt.Errorf("suite '%s' is not implemented", digest)
 }
 
 // FingerprintIsEqual checks whether two fingerprints are identical.
@@ -33,7 +32,7 @@ func FingerprintIsEqual(a, b *Fingerprint) bool {
 
 // FingerprintFromCertificate transforms a TLS certificate to a DER-encoded public
 // key and calls FingerprintFromPublicKey.
-func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fingerprint, error) {
+func FingerprintFromCertificate(cert []byte) (*Fingerprint, error) {
 	parsedCert, err := x509.ParseCertificate(cert)
 	if err != nil {
 		return nil, err
@@ -44,7 +43,7 @@ func FingerprintFromCertificate(cert []byte, suite string, domain string) (*Fing
 		return nil, err
 	}
 
-	return FingerprintFromPublicKey(pubkeyDer, suite, domain)
+	return FingerprintFromPublicKey(pubkeyDer)
 }
 
 // FingerprintFromNIString parses an NI string to type fingerprint.
@@ -64,10 +63,7 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 // FingerprintFromPublicKey transforms a DER-encoded public key to a fingerprint.
 // This is done by hashing the public key with the specified suite and inserting
 // the given authority.
-// These suites are supported: sha3-256
-func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fingerprint, error) {
-	var digest []byte
-
+func FingerprintFromPublicKey(pubKey []byte) (*Fingerprint, error) {
 	if parsedPubKey, err := x509.ParsePKIXPublicKey(pubKey); err == nil {
 		if _, ok := parsedPubKey.(ed25519.PublicKey); !ok {
 			return nil, ErrInvalidKey
@@ -76,17 +72,8 @@ func FingerprintFromPublicKey(pubKey []byte, suite string, domain string) (*Fing
 		return nil, fmt.Errorf("PublicKey: invalid der-encoding")
 	}
 
-	if suite == "sha3-256" {
-		d := sha3.Sum256(pubKey)
-		digest = d[:]
-	} else {
-		return nil, ni.ErrSuiteNotSupported
-	}
-	if domain == "" {
-		domain = DefaultResolveDomain
-	}
-
-	niURL, err := ni.DigestToNI(digest[:], suite, domain)
+	d := internalDigest(pubKey)
+	niURL, err := ni.DigestToNI(d, DefaultFingerprintSuite, "")
 	if err != nil {
 		return nil, err
 	}
