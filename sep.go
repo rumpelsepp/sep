@@ -13,6 +13,7 @@ import (
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"github.com/fxamacker/cbor"
+	"github.com/pion/dtls"
 )
 
 const (
@@ -72,6 +73,19 @@ func NewDefaultTLSConfig(cert tls.Certificate) *tls.Config {
 	}
 }
 
+func NewDefaultDTLSConfig(cert tls.Certificate) *dtls.Config {
+	// XXX: fugly
+	x509Cert, _ := x509.ParseCertificate(cert.Certificate[0])
+
+	return &dtls.Config{
+		Certificate:        x509Cert,
+		PrivateKey:         cert.PrivateKey,
+		ClientAuth:         dtls.RequireAnyClientCert,
+		InsecureSkipVerify: false,
+		MTU:                1200,
+	}
+}
+
 type Listener interface {
 	Accept() (Conn, error)
 	Close() error
@@ -88,6 +102,9 @@ func Listen(network, address string, config Config) (Listener, error) {
 	case "tcp", "tcp4", "tcp6":
 		listener, err = tcpListen(network, address, &config)
 
+	case "udp", "udp4", "udp6":
+		listener, err = udpListen(network, address, &config)
+
 	default:
 		panic("transport is not supported")
 	}
@@ -101,6 +118,7 @@ func Listen(network, address string, config Config) (Listener, error) {
 
 type Config struct {
 	TLSConfig    *tls.Config
+	DTLSConfig   *dtls.Config
 	AllowedPeers []*Fingerprint
 	TrustDB      TrustDatabase
 	Directory    *DirectoryClient
@@ -113,6 +131,7 @@ func (c *Config) Clone() Config {
 
 	return Config{
 		TLSConfig:    c.TLSConfig.Clone(),
+		DTLSConfig:   &(*c.DTLSConfig),
 		AllowedPeers: allowed,
 		TrustDB:      c.TrustDB,
 		Directory:    c.Directory,
@@ -137,6 +156,9 @@ func NewDialer(transport string, config Config) (Dialer, error) {
 	switch transport {
 	case "tcp":
 		dialer = newTCPDialer(config)
+
+	case "udp":
+		dialer = newUDPDialer(config)
 
 	default:
 		return nil, fmt.Errorf("transport is not supported")
@@ -199,6 +221,34 @@ func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SEPVeri
 				if database.IsTrusted(remoteFP) {
 					return nil
 				}
+			}
+		}
+
+		return fmt.Errorf("peer is not trusted")
+	}
+}
+
+// XXX: The prototypes are different, that's why these guys are needed…
+func VerifierAllowAllUDP(cert *x509.Certificate, verified bool) error {
+	return nil
+}
+
+// XXX: The prototypes are different, that's why these guys are needed…
+func MakeDefaultVerifierUDP(allowed []*Fingerprint, database TrustDatabase) func(*x509.Certificate, bool) error {
+	return func(cert *x509.Certificate, verified bool) error {
+		remoteFP, err := FingerprintFromCertificate(cert.Raw)
+		if err != nil {
+			return err
+		}
+
+		for _, fp := range allowed {
+			if FingerprintIsEqual(remoteFP, fp) {
+				return nil
+			}
+		}
+		if database != nil {
+			if database.IsTrusted(remoteFP) {
+				return nil
 			}
 		}
 

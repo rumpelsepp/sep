@@ -18,7 +18,7 @@ type TCPConn struct {
 	remoteFingerprint *Fingerprint
 }
 
-func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
+func initTCP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 	if config.TLSConfig.VerifyPeerCertificate == nil {
 		// We do verifying ourselves.
 		config.TLSConfig.InsecureSkipVerify = true
@@ -61,7 +61,7 @@ func initSEP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 
 func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 	tlsConn := tls.Server(conn, config.TLSConfig)
-	sepConn, err := initSEP(tlsConn, config)
+	sepConn, err := initTCP(tlsConn, config)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func tcpServer(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 
 func tcpClient(conn *net.TCPConn, config *Config) (*TCPConn, error) {
 	tlsConn := tls.Client(conn, config.TLSConfig)
-	sepConn, err := initSEP(tlsConn, config)
+	sepConn, err := initTCP(tlsConn, config)
 	if err != nil {
 		return nil, err
 	}

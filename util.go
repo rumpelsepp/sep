@@ -125,7 +125,7 @@ func GenKeypairFile(keyPath, certPath string) error {
 // GatherAllAddresses gathers the IP addresses of all local interfaces and
 // appends the specified port. If no port is provided (""), the default port is
 // appended.
-func GatherAllAddresses(port string) ([]string, error) {
+func GatherAllAddresses(transport, port string) ([]string, error) {
 	if port == "" {
 		port = DefaultPort
 	}
@@ -147,7 +147,7 @@ func GatherAllAddresses(port string) ([]string, error) {
 			if n, ok := addr.(*net.IPNet); ok {
 				if n.IP.IsGlobalUnicast() {
 					addrStr := net.JoinHostPort(n.IP.String(), port)
-					addrs = append(addrs, "tcp://"+addrStr)
+					addrs = append(addrs, transport+"://"+addrStr)
 				}
 			}
 		}
