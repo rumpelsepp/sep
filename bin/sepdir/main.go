@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ type runtimeOptions struct {
 	put       bool
 	query     bool
 	debug     bool
+	json      bool
 	help      bool
 }
 
@@ -29,6 +31,7 @@ func main() {
 	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Directory API server location")
 	getopt.BoolVar(&opts.query, "q", false, "Query directory for record set of given fingerprint")
 	getopt.BoolVar(&opts.put, "p", false, "Put record set to directory and exit")
+	getopt.BoolVar(&opts.json, "j", false, "Print data as JSON")
 	getopt.BoolVar(&opts.debug, "v", false, "Print debug output")
 	getopt.BoolVar(&opts.help, "h", false, "Show help page and exit")
 	getopt.Parse()
@@ -58,7 +61,7 @@ func main() {
 	dirClient := sep.NewDirectoryClient("api."+opts.directory, &keypair, nil)
 
 	if opts.put {
-		addrs, err := sep.GatherAllAddresses(sep.DefaultPort)
+		addrs, err := sep.GatherAllAddresses("tcp", sep.DefaultPort)
 		if err != nil {
 			rlog.Critln(err)
 		}
@@ -83,8 +86,14 @@ func main() {
 		if rs, err := dirClient.Discover(fp); err != nil {
 			rlog.Critln(err)
 		} else {
-			fmt.Println(rs.Pretty())
-			os.Exit(0)
+			if opts.json {
+				d, _ := json.Marshal(rs)
+				fmt.Println(string(d))
+				os.Exit(0)
+			} else {
+				fmt.Println(rs.Pretty())
+				os.Exit(0)
+			}
 		}
 	}
 }

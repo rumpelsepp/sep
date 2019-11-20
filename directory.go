@@ -173,7 +173,7 @@ type DirectoryClient struct {
 	AnnounceFlags    int
 
 	httpClient *http.Client
-	keypair    *tls.Certificate
+	privateKey crypto.PrivateKey
 	options    *DirectoryOptions
 
 	MNDListener *MNDListener
@@ -181,11 +181,10 @@ type DirectoryClient struct {
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 // TODO Add more details about those defaults, e.g. DiscoverFlags
-func NewDirectoryClient(addr string, keypair *tls.Certificate, options *DirectoryOptions) *DirectoryClient {
+func NewDirectoryClient(addr string, config *tls.Config, options *DirectoryOptions) *DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
-			DisableCompression: true,
-			TLSClientConfig:    NewDefaultTLSConfig(*keypair),
+			TLSClientConfig: config,
 		},
 		Timeout: 10 * time.Second,
 	}
@@ -193,7 +192,7 @@ func NewDirectoryClient(addr string, keypair *tls.Certificate, options *Director
 	return &DirectoryClient{
 		AnnounceEndpoint: addr,
 		DoHEndpoint:      DefaultDoHURI,
-		keypair:          keypair,
+		privateKey:       config.Certificates[0].PrivateKey,
 		httpClient:       client,
 		options:          options,
 		DiscoverFlags: DiscoverFlagUseDoH |
@@ -242,7 +241,7 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 // announceViaHTTPS signs the record set and sends it to the directory in a
 // json-encoded HTTP PUT request.
 func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
-	if err := payload.Sign(a.keypair.PrivateKey); err != nil {
+	if err := payload.Sign(a.privateKey); err != nil {
 		return err
 	}
 
@@ -591,7 +590,7 @@ func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRe
 		Blob: fingerprint.Bytes(),
 	}
 
-	if err := req.Sign(a.keypair.PrivateKey); err != nil {
+	if err := req.Sign(a.privateKey); err != nil {
 		return nil, err
 	}
 
