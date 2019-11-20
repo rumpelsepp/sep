@@ -12,10 +12,12 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	mathrand "math/rand"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -186,6 +188,31 @@ func gatherAllBroadcastAddresses() ([]string, error) {
 		}
 	}
 	return addrs, nil
+}
+
+type Announcer struct {
+	DirClient     *DirectoryClient
+	TTL           uint
+	Active        bool
+	AddrsCallback func() ([]string, error)
+}
+
+func (a *Announcer) AnnounceAddresses() error {
+	for a.Active {
+		addrs, err := a.AddrsCallback()
+		if err != nil {
+			Logger.Errf("announcer: %s", err)
+			return err
+		}
+		if err := a.DirClient.AnnounceAddresses(addrs, a.TTL); err != nil {
+			Logger.Errf("announcer: %s", err)
+			return err
+		}
+		random := uint(mathrand.Intn(60))
+		time.Sleep(time.Duration(a.TTL-random) * time.Second)
+	}
+
+	return nil
 }
 
 // LoadAuthorizedFingerprints loads a file and returns a map of alias to
