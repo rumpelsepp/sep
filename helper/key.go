@@ -92,7 +92,7 @@ func GenKeyFile(keyPath string) error {
 	}
 	defer privOut.Close()
 
-	_, err = io.Copy(privOut, bytes.NewBuffer(privPEM))
+	_, err = io.Copy(privOut, bytes.NewReader(privPEM))
 	if err != nil {
 		return err
 	}
