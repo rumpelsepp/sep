@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -16,102 +17,117 @@ import (
 
 // GenKeypairPEM generates a fresh new keypair and returns a
 // the certificate and the key is pem encoded bytes.
-func GenKeypairPEM() ([]byte, []byte, error) {
+func GenKeyPEM() ([]byte, error) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate private key: %s", priv)
+		return nil, fmt.Errorf("generate private key: %w", priv)
 	}
 
+	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "ED25519 PRIVATE KEY", Bytes: privDER})
+
+	return privPEM, nil
+}
+
+func GenCertificate(priv ed25519.PrivateKey) (tls.Certificate, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generate serial number: %s", err)
+		return tls.Certificate{}, fmt.Errorf("generate serial number: %s", err)
 	}
 
 	template := x509.Certificate{SerialNumber: serialNumber}
 
-	derCert, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
 	if err != nil {
-		return nil, nil, err
+		return tls.Certificate{}, err
 	}
 
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derCert})
-
-	b, err := x509.MarshalPKCS8PrivateKey(priv)
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
-		return nil, nil, err
+		return tls.Certificate{}, err
 	}
 
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "ED25519 PRIVATE KEY", Bytes: b})
+	privPEM := pem.EncodeToMemory(&pem.Block{Type: "ED25519 PRIVATE KEY", Bytes: privDER})
 
-	return certPEM, keyPEM, nil
+	return tls.X509KeyPair(certPEM, privPEM)
 }
 
 // GenKeypair generates a fresh keypair and returns a parsed tls.Certificate.
-func GenKeypair() (tls.Certificate, error) {
-	certPEM, keyPEM, err := GenKeypairPEM()
+func GenTLSKeypair() (tls.Certificate, error) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, err
+		return tls.Certificate{}, fmt.Errorf("generate private key: %w", priv)
 	}
-
-	keypair, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	return keypair, nil
+	return GenCertificate(priv)
 }
 
 // GenKeypair generates a fresh keypair and stores the key and the corresponding
 // certificate in the supplied paths. PEM encoding is used.
-func GenKeypairFile(keyPath, certPath string) error {
+func GenKeyFile(keyPath string) error {
 	if _, err := os.Stat(keyPath); err == nil {
 		return fmt.Errorf("private key already exists")
 	}
 
-	if _, err := os.Stat(certPath); err == nil {
-		return fmt.Errorf("certificate already exists")
-	}
-
-	certPEM, keyPEM, err := GenKeypairPEM()
+	privPEM, err := GenKeyPEM()
 	if err != nil {
 		return err
 	}
 
-	certBase := filepath.Dir(certPath)
 	keyBase := filepath.Dir(keyPath)
 
-	err = os.MkdirAll(certBase, 0700)
+	err = os.MkdirAll(keyBase, 0700)
 	if err != nil {
 		return err
-	}
-	if certBase != keyBase {
-		err = os.MkdirAll(keyBase, 0700)
-		if err != nil {
-			return err
-		}
 	}
 
-	certOut, err := os.Create(certPath)
+	privOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
-	defer certOut.Close()
+	defer privOut.Close()
 
-	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer keyOut.Close()
-
-	_, err = io.Copy(certOut, bytes.NewBuffer(certPEM))
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(keyOut, bytes.NewBuffer(keyPEM))
+	_, err = io.Copy(privOut, bytes.NewBuffer(privPEM))
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func LoadKey(keyPath string) (ed25519.PrivateKey, error) {
+	file, err := os.Open(keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	privPEM, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := x509.ParsePKCS8PrivateKey(privPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	priv, ok := p.(ed25519.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("wrong key type")
+	}
+
+	return priv, nil
+}
+
+func LoadKeyCert(keyPath string) (tls.Certificate, error) {
+	priv, err := LoadKey(keyPath)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return GenCertificate(priv)
 }
