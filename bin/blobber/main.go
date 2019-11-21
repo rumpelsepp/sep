@@ -7,6 +7,7 @@ import (
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
+	"git.sr.ht/~rumpelsepp/sep/helper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -29,13 +30,14 @@ func main() {
 		sep.Logger.SetLogLevel(rlog.DEBUG)
 	}
 
-	keypair, err := sep.GenKeypair()
+	keypair, err := helper.GenTLSKeypair()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, &keypair, nil)
+	config := helper.NewDefaultTLSConfig(keypair)
+	dirClient := sep.NewDirectoryClient("api."+opts.directory, config, nil)
 
 	if opts.fetch != "" {
 		fingerprint, err := sep.FingerprintFromNIString(opts.fetch)
@@ -74,6 +76,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+	ownFp.Authority = opts.directory
 
 	fmt.Println(ownFp.String())
 }

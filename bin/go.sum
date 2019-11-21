@@ -13,6 +13,8 @@ git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826091145-a50111d2adbe h1:Ld8Izl9dfsxn4bK
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20190826091145-a50111d2adbe/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20191105094650-71f5f1779482 h1:WbSIkHQRy1FkkvmHy1QJDwz96hgWh5yuxsp1Rs8uP8Q=
 git.sr.ht/~rumpelsepp/rlog v0.0.0-20191105094650-71f5f1779482/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
+git.sr.ht/~rumpelsepp/rlog v0.0.0-20191119152513-6f7f3bf18e94 h1:FKy0DPi9zrwZTUrVEUTxoUkYwTs7sMZm1AqCQOHPKv4=
+git.sr.ht/~rumpelsepp/rlog v0.0.0-20191119152513-6f7f3bf18e94/go.mod h1:dTKOP6rz9IOsggmuZbP6esFd1uDekwhxb7DXaEdSuSw=
 git.sr.ht/~sircmpwn/getopt v0.0.0-20190808004552-daaf1274538b h1:da5JBQ6dcW14aWnEf/pFRIMV2PsqTQEWmR+V2sw5oxU=
 git.sr.ht/~sircmpwn/getopt v0.0.0-20190808004552-daaf1274538b/go.mod h1:wMEGFFFNuPos7vHmWXfszqImLppbc0wEhh6JBfJIUgw=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
@@ -36,6 +38,8 @@ github.com/pion/dtls v1.5.3 h1:zLEjR0hUiXGermhTFq4DmhALcRz9u+lSa//AH7H1sW0=
 github.com/pion/dtls v1.5.3/go.mod h1:v4ULmyyV65geAZQBBckCjgMhmngTqz7HQVsQVYnfkGo=
 github.com/pion/dtls v1.5.4-0.20191105072917-77fae27e533b h1:erkwTb95jW/ffeRKKpOlKdxomeLFvkHCfxcBN4cBlj4=
 github.com/pion/dtls v1.5.4-0.20191105072917-77fae27e533b/go.mod h1:eVHevf4AM8R9+Pxa29q4aiI2iIbfMWOW1WgEcSCGpHU=
+github.com/pion/dtls v1.5.4 h1:q8pXFMF7T+EAVO4auQU/ds+5yh5yOK6NiTN/4NQ0dB0=
+github.com/pion/dtls v1.5.4/go.mod h1:eVHevf4AM8R9+Pxa29q4aiI2iIbfMWOW1WgEcSCGpHU=
 github.com/pion/logging v0.2.2 h1:M9+AIj/+pxNsDfAT64+MAVgJO0rsyLnoJKCqf//DoeY=
 github.com/pion/logging v0.2.2/go.mod h1:k0/tDVsRCX2Mb2ZEmTqNa7CWsQPc+YYCB7Q+5pahoms=
 github.com/pion/transport v0.8.9/go.mod h1:lpeSM6KJFejVtZf8k0fgeN7zE73APQpTF83WvA1FVP8=
@@ -62,6 +66,8 @@ golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf h1:fnPsqIDRbCSgumaMCRpoIo
 golang.org/x/crypto v0.0.0-20191029031824-8986dd9e96cf/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20191107222254-f4817d981bb6 h1:VsmCukA2gDdC3Mu6evOIT0QjLSQWiJIwzv1Bdj4jdzU=
 golang.org/x/crypto v0.0.0-20191107222254-f4817d981bb6/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
+golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba h1:9bFeDpN3gTqNanMVqNcoR/pJQuP5uroC3t1D7eXozTE=
+golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 h1:0GoQqolDA55aaLxZyTzK/Y2ePZzZTUrRacwib7cNsYQ=
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
@@ -80,6 +86,8 @@ golang.org/x/sys v0.0.0-20191104094858-e8c54fb511f6 h1:ZJUmhYTp8GbGC0ViZRc2U+MIY
 golang.org/x/sys v0.0.0-20191104094858-e8c54fb511f6/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191105231009-c1f44814a5cd h1:3x5uuvBgE6oaXJjCOvpCC1IpgJogqQ+PqGGU3ZxAgII=
 golang.org/x/sys v0.0.0-20191105231009-c1f44814a5cd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20191119195528-f068ffe820e4 h1:FjhQftcbpdYXneEYSWZO7+6Bu+Bi1A8VPvGYWOIzIbw=
+golang.org/x/sys v0.0.0-20191119195528-f068ffe820e4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 h1:9zdDQZ7Thm29KFXgAX/+yaf3eVbP7djjWp/dXAppNCc=
