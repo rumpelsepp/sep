@@ -105,15 +105,21 @@ func LoadKey(keyPath string) (ed25519.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 
 	privPEM, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}
 
-	p, err := x509.ParsePKCS8PrivateKey(privPEM)
+	block, _ := pem.Decode(privPEM)
+	if block == nil || block.Type != "ED25519 PRIVATE KEY" {
+		return nil, fmt.Errorf("PEM decoding error")
+	}
+
+	p, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing key failed")
 	}
 
 	priv, ok := p.(ed25519.PrivateKey)
