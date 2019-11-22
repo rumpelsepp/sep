@@ -9,6 +9,7 @@ import (
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
+	"git.sr.ht/~rumpelsepp/sep/sephelper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -58,10 +59,11 @@ func main() {
 		rlog.Critln(err)
 	}
 
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, &keypair, nil)
+	tlsConfig := sephelper.NewDefaultTLSConfig(keypair)
+	dirClient := sep.NewDirectoryClient("api."+opts.directory, tlsConfig, nil)
 
 	if opts.put {
-		addrs, err := sep.GatherAllAddresses("tcp", sep.DefaultPort)
+		addrs, err := sephelper.GatherAllAddresses("tcp", sep.DefaultPort)
 		if err != nil {
 			rlog.Critln(err)
 		}

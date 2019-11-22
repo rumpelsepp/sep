@@ -1,12 +1,12 @@
 package main
 
 import (
-	"crypto/tls"
 	"os"
 	"path"
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
+	"git.sr.ht/~rumpelsepp/sep/sephelper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -36,25 +36,14 @@ func main() {
 		rlog.SetLogLevel(rlog.DEBUG)
 	}
 
-	var (
-		certPath = path.Join(homeDir, "sep", "cert.pem")
-		keyPath  = path.Join(homeDir, "sep", "key.pem")
-	)
+	keyPath := path.Join(homeDir, "sep", "key.pem")
 
 	if opts.help {
 		getopt.Usage()
 		os.Exit(0)
 	}
 
-	if opts.genKey {
-		err := sep.GenKeypairFile(keyPath, certPath)
-		if err != nil {
-			rlog.Critln(err)
-		}
-		os.Exit(0)
-	}
-
-	keypair, err := tls.LoadX509KeyPair(certPath, keyPath)
+	keypair, err := sephelper.LoadKeyCert(keyPath)
 	if err != nil {
 		rlog.Critln(err)
 	}
@@ -64,8 +53,8 @@ func main() {
 		rlog.Critln(err)
 	}
 
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, &keypair, nil)
-	tlsConfig := sep.NewDefaultTLSConfig(keypair)
+	tlsConfig := sephelper.NewDefaultTLSConfig(keypair)
+	dirClient := sep.NewDirectoryClient("api."+opts.directory, tlsConfig, nil)
 	config := sep.Config{
 		AllowedPeers: []*sep.Fingerprint{delegator},
 		Directory:    dirClient,

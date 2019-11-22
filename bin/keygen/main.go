@@ -10,7 +10,7 @@ import (
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
-	"git.sr.ht/~rumpelsepp/sep/helper"
+	"git.sr.ht/~rumpelsepp/sep/sephelper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -33,7 +33,7 @@ func main() {
 	}
 
 	if opts.genKey {
-		privPEM, err := helper.GenKeyPEM()
+		privPEM, err := sephelper.GenKeyPEM()
 		if err != nil {
 			rlog.Critln(err)
 		}

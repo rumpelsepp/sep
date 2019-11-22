@@ -9,7 +9,7 @@ import (
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
-	"git.sr.ht/~rumpelsepp/sep/helper"
+	"git.sr.ht/~rumpelsepp/sep/sephelper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -32,13 +32,13 @@ func main() {
 		sep.Logger.SetLogLevel(rlog.DEBUG)
 	}
 
-	keypair, err := helper.GenTLSKeypair()
+	keypair, err := sephelper.GenTLSKeypair()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	config := helper.NewDefaultTLSConfig(keypair)
+	config := sephelper.NewDefaultTLSConfig(keypair)
 	dirClient := sep.NewDirectoryClient("api."+opts.directory, config, nil)
 
 	if opts.fetch != "" {
