@@ -1,4 +1,4 @@
-package helper
+package sephelper
 
 import (
 	"io/ioutil"
@@ -9,5 +9,5 @@ import (
 var Logger = rlog.NewLogger(ioutil.Discard)
 
 func init() {
-	Logger.SetModule("[sep-helper]")
+	Logger.SetModule("[sep-sephelper]")
 }
