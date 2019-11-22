@@ -2,6 +2,7 @@ package sep
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ed25519"
 	"crypto/x509"
 	"fmt"
@@ -42,8 +43,7 @@ func FingerprintFromCertificate(cert []byte) (*Fingerprint, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return FingerprintFromPublicKey(pubkeyDer)
+	return FingerprintFromPublicKeyDER(pubkeyDer)
 }
 
 // FingerprintFromNIString parses an NI string to type fingerprint.
@@ -56,29 +56,35 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 	if err := checkDigest(niURL.Alg); err != nil {
 		return nil, err
 	}
-
 	return &Fingerprint{niURL}, nil
+}
+
+func FingerprintFromPublicKey(pubKey crypto.PublicKey) (*Fingerprint, error) {
+	p, ok := pubKey.(ed25519.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("PubKey: invalid key")
+	}
+
+	d := internalDigest(p)
+	niURL, err := ni.DigestToNI(d, DefaultFingerprintSuite, "")
+	if err != nil {
+		return nil, err
+	}
+	return FingerprintFromRawNI(niURL)
 }
 
 // FingerprintFromPublicKey transforms a DER-encoded public key to a fingerprint.
 // This is done by hashing the public key with the specified suite and inserting
 // the given authority.
-func FingerprintFromPublicKey(pubKey []byte) (*Fingerprint, error) {
-	if parsedPubKey, err := x509.ParsePKIXPublicKey(pubKey); err == nil {
-		if _, ok := parsedPubKey.(ed25519.PublicKey); !ok {
-			return nil, ErrInvalidKey
-		}
-	} else {
+func FingerprintFromPublicKeyDER(pubKey []byte) (*Fingerprint, error) {
+	parsedPubKey, err := x509.ParsePKIXPublicKey(pubKey)
+	if err != nil {
 		return nil, fmt.Errorf("PubKey: invalid der-encoding: %w", err)
 	}
-
-	d := internalDigest(pubKey)
-	niURL, err := ni.DigestToNI(d, DefaultFingerprintSuite, "")
-	if err != nil {
-		return nil, err
+	if _, ok := parsedPubKey.(ed25519.PublicKey); !ok {
+		return nil, ErrInvalidKey
 	}
-
-	return FingerprintFromRawNI(niURL)
+	return FingerprintFromPublicKey(parsedPubKey)
 }
 
 // FingerprintFromRawNI transforms an NI URL to type fingerprint.

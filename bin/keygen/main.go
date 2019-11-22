@@ -1,13 +1,16 @@
 package main
 
 import (
-	"crypto/tls"
+	"crypto/ed25519"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"path"
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
+	"git.sr.ht/~rumpelsepp/sep/helper"
 	"git.sr.ht/~sircmpwn/getopt"
 )
 
@@ -18,21 +21,11 @@ type runtimeOptions struct {
 }
 
 func main() {
-	homeDir, err := os.UserConfigDir()
-	if err != nil {
-		rlog.Critln(err)
-	}
-
 	opts := runtimeOptions{}
 	getopt.BoolVar(&opts.genKey, "g", false, "Generate a new keypair")
-	getopt.BoolVar(&opts.show, "s", false, "Show own fingerprint")
+	getopt.BoolVar(&opts.show, "s", false, "Show fingerprint, key from stdin")
 	getopt.BoolVar(&opts.help, "h", false, "Show help page and exit")
 	getopt.Parse()
-
-	var (
-		certPath = path.Join(homeDir, "sep", "cert.pem")
-		keyPath  = path.Join(homeDir, "sep", "key.pem")
-	)
 
 	if opts.help {
 		getopt.Usage()
@@ -40,17 +33,34 @@ func main() {
 	}
 
 	if opts.genKey {
-		err := sep.GenKeypairFile(keyPath, certPath)
-		if err != nil {
-			rlog.Critln(err)
-		}
-	} else if opts.show {
-		keypair, err := tls.LoadX509KeyPair(certPath, keyPath)
+		privPEM, err := helper.GenKeyPEM()
 		if err != nil {
 			rlog.Critln(err)
 		}
 
-		ownFp, err := sep.FingerprintFromCertificate(keypair.Certificate[0])
+		fmt.Print(string(privPEM))
+	} else if opts.show {
+		privPEM, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			rlog.Critln(err)
+		}
+
+		block, _ := pem.Decode(privPEM)
+		if block == nil || block.Type != "ED25519 PRIVATE KEY" {
+			rlog.Critln("PEM decoding error")
+		}
+
+		p, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			rlog.Crit("parsing key failed")
+		}
+
+		priv, ok := p.(ed25519.PrivateKey)
+		if !ok {
+			rlog.Crit("wrong key type")
+		}
+
+		ownFp, err := sep.FingerprintFromPublicKey(priv.Public())
 		if err != nil {
 			rlog.Critln(err)
 		}
