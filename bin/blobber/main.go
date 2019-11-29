@@ -34,8 +34,7 @@ func main() {
 
 	keypair, err := sephelper.GenTLSKeypair()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		rlog.Crit(err)
 	}
 
 	config := sephelper.NewDefaultTLSConfig(keypair)
