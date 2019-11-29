@@ -1,4 +1,7 @@
 /blobber/blobber
+/relay/relay
+/directory/directory
+/delegator/delegator
 /sepdir/sepdir
 /delegfetch/delegfetch
 /keygen/keygen
