@@ -94,6 +94,7 @@ func getAddresses(proto, port string) func() ([]string, error) {
 
 type runtimeOptions struct {
 	configDir  string
+	directory  string
 	listenAddr string
 	help       bool
 }
@@ -103,6 +104,7 @@ func main() {
 
 	opts := runtimeOptions{}
 	getopt.StringVar(&opts.configDir, "c", "/etc/sep-relay", "Config directory")
+	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Announce to this directory")
 	getopt.StringVar(&opts.listenAddr, "l", "[::]:33010", "Listen on this address")
 	getopt.BoolVar(&opts.help, "h", false, "Show help and exit")
 	getopt.Parse()
@@ -140,7 +142,7 @@ func main() {
 
 	sessionDB := newSessionDB()
 	tlsConfigDir := sephelper.NewDefaultTLSConfig(keypair)
-	dirClient := sep.NewDirectoryClient("api.ace-sep.de", tlsConfigDir, nil)
+	dirClient := sep.NewDirectoryClient("api"+opts.directory, tlsConfigDir, nil)
 	// TODO: get port from cli
 	ann := sephelper.Announcer{
 		DirClient:     dirClient,
