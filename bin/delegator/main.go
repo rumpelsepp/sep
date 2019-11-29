@@ -48,8 +48,15 @@ func handleDelegate(conn sep.Conn, conf *config) {
 	}
 }
 
+func getAddresses(proto, port string) func() ([]string, error) {
+	return func() ([]string, error) {
+		return sephelper.GatherAllAddresses(proto, port)
+	}
+}
+
 type runtimeOptions struct {
 	configDir  string
+	directory  string
 	listenAddr string
 	genKey     bool
 	show       bool
@@ -60,6 +67,7 @@ func main() {
 	opts := runtimeOptions{}
 	getopt.StringVar(&opts.configDir, "c", "/etc/sep-deleg", "Config directory")
 	getopt.StringVar(&opts.listenAddr, "l", "[::]:33033", "Listen on this address")
+	getopt.StringVar(&opts.directory, "d", "ace-sep.de", "Announce to this directory")
 	getopt.BoolVar(&opts.genKey, "g", false, "Generate a new keypair")
 	getopt.BoolVar(&opts.show, "s", false, "Show own fingerprint")
 	getopt.BoolVar(&opts.help, "h", false, "Show help and exit")
@@ -110,8 +118,17 @@ func main() {
 	}
 	fmt.Printf("%+v\n", conf)
 
-	// dirClient := sep.NewDirectoryClient("api.ace-sep.de", tlsConfig, nil)
-	// go helper.Announcer(dirClient, "33033")
+	tlsConfigDir := sephelper.NewDefaultTLSConfig(keypair)
+	dirClient := sep.NewDirectoryClient("api"+opts.directory, tlsConfigDir, nil)
+	// TODO: get port from cli
+	ann := sephelper.Announcer{
+		DirClient:     dirClient,
+		TTL:           1800,
+		AddrsCallback: getAddresses("tcp", "33033"),
+		Active:        true,
+	}
+
+	go ann.AnnounceAddresses()
 
 	for {
 		conn, err := ln.Accept()
