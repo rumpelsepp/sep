@@ -161,7 +161,7 @@ func main() {
 		relay := sep.RelayNode{
 			Conn:    conn,
 			Keypair: keypair,
-			Encoder: cbor.NewEncoder(conn, cbor.EncOptions{Canonical: true}),
+			Encoder: cbor.NewEncoder(conn, cbor.EncOptions{}),
 			Decoder: cbor.NewDecoder(conn),
 		}
 
