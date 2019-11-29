@@ -156,7 +156,6 @@ func (s *apiServer) getDiscover(w http.ResponseWriter, r *http.Request) {
 
 	for _, val := range vals {
 		parts := strings.SplitN(val, "=", 2)
-		fmt.Println(parts)
 
 		switch parts[0] {
 		case recordTypeAddress:
