@@ -82,7 +82,7 @@ func (c *relayConn) ping() error {
 			Type: sep.RelayMsgTypePing,
 		}
 
-		logger.Debugf("[%x]: Exchanging ping message", c.target.Conn.RemoteFingerprint().Bytes()[:6])
+		logger.Debugf("[%s]: Exchanging ping message", c.target.Conn.RemoteFingerprint().Short())
 
 		err := c.target.Send(req)
 		if err != nil {
@@ -101,7 +101,7 @@ func (c *relayConn) ping() error {
 			return fmt.Errorf("unexpected message type")
 		}
 
-		logger.Debugf("[%x]: Received pong message", c.target.Conn.RemoteFingerprint().Bytes()[:6])
+		logger.Debugf("[%s]: Received pong message", c.target.Conn.RemoteFingerprint().Short())
 
 		c.mutex.Unlock()
 		time.Sleep(5 * time.Second)

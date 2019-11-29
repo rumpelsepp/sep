@@ -77,7 +77,7 @@ func handleExpose(req sep.RelayMessage, relay *sep.RelayNode, sessionDB *session
 	}
 	sessionDB.put(targetFp.String(), &session)
 
-	logger.Infof("[%x]: acknowledged. Starting keep alive.", targetFp.Bytes()[:6])
+	logger.Infof("[%s]: acknowledged. Starting keep alive.", targetFp.Short())
 
 	err = session.ping()
 	if err != nil {
