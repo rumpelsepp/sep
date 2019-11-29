@@ -1,2 +1,3 @@
-This directory contains a few sample programs which are primarily used for 
-testing and development.
+This directory contains a few sample programs which are primarily used for
+testing and development. Further, the most important infrastructure components,
+such as directory, relay, and delegator are included.
