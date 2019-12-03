@@ -417,24 +417,17 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 			}
 			payload.Relays = append(payload.Relays, parsedURL.String())
 
-		case "signature":
-			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
-			if err != nil {
-				return nil, err
-			}
-
 		case "pubkey":
 			payload.PubKey, err = base64.StdEncoding.DecodeString(parts[1])
 			if err != nil {
 				return nil, err
 			}
 
-		case "ttl":
-			tmp, err := strconv.ParseUint(parts[1], 10, 64)
+		case "signature":
+			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
 			if err != nil {
 				return nil, err
 			}
-			payload.TTL = uint(tmp)
 
 		case "timestamp":
 			var tmp time.Time
@@ -442,6 +435,13 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 				return nil, err
 			}
 			payload.Timestamp = tmp
+
+		case "ttl":
+			tmp, err := strconv.ParseUint(parts[1], 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			payload.TTL = uint(tmp)
 		}
 	}
 

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	recordTypeAddress   = "addr"
+	recordTypeAddress   = "address"
 	recordTypeRelay     = "relay"
 	recordTypeBlob      = "blob"
 	recordTypeSignature = "signature"
@@ -350,6 +350,7 @@ func (b *nsupdateBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
 		return err
 	}
 	fp.Authority = b.manager.zone
+	b.manager.delEntry(fp.FQDN())
 
 	// Add addresses
 	addrURLs := parseURLs(rs.Addresses)
@@ -369,7 +370,7 @@ func (b *nsupdateBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
 			return fmt.Errorf("no valid ip address: %s", ip)
 		}
 
-		// Add TXT records, only if a port was specified.
+		// Add TXT records
 		if err := b.manager.addTXTRecord(fp, recordTypeAddress, addr.String(), ttl); err != nil {
 			return err
 		}
