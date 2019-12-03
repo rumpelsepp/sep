@@ -73,8 +73,6 @@ func (a *DirectoryRecordSet) concat() []byte {
 func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 	var err error
 
-	a.Timestamp = time.Now()
-
 	privKey, ok := privateKey.(ed25519.PrivateKey)
 	if !ok {
 		return ErrInvalidKey
@@ -85,10 +83,8 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 		return err
 	}
 
+	a.Timestamp = time.Now()
 	a.Signature = ed25519.Sign(privKey, a.concat())
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -97,31 +93,28 @@ func (a *DirectoryRecordSet) Sign(privateKey crypto.PrivateKey) error {
 // by validating the signature of the payload and checking whether the key used
 // for signing matches the given fingerprint.
 func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, error) {
-	// Verify hash of public key against fingerprint
-	digestKey := internalDigest(a.PubKey)
-
-	if !bytes.Equal(digestKey, fingerprint.Bytes()[1:]) {
-		return false, fmt.Errorf("unexpected public key")
-	}
-
-	remotePK, err := x509.ParsePKIXPublicKey(a.PubKey)
+	pk, err := x509.ParsePKIXPublicKey(a.PubKey)
 	if err != nil {
 		return false, err
 	}
 
-	remotePubKey, ok := remotePK.(ed25519.PublicKey)
+	pubKey, ok := pk.(ed25519.PublicKey)
 	if !ok {
 		return false, ErrInvalidKey
 	}
 
-	if ok := ed25519.Verify(remotePubKey, a.concat(), a.Signature); !ok {
+	digestKey := internalDigest(pubKey)
+
+	// Verify hash of public key against fingerprint
+	if !bytes.Equal(digestKey, fingerprint.Bytes()[1:]) {
+		return false, fmt.Errorf("unexpected public key")
+	}
+	if ok := ed25519.Verify(pubKey, a.concat(), a.Signature); !ok {
 		return false, nil
 	}
-
 	if dur := time.Since(a.Timestamp); dur > time.Duration(a.TTL)*time.Second {
 		return false, fmt.Errorf("recordSet expired")
 	}
-
 	return true, nil
 }
 
@@ -147,7 +140,11 @@ Signature : {{.Signature | printf "%.33x…"}}`
 // this RecordSet instance. It errors out if the PubKey record is empty or invalid.
 // The returned fingerprint is always canonical.
 func (rs *DirectoryRecordSet) Fingerprint() (*Fingerprint, error) {
-	return FingerprintFromPublicKey(rs.PubKey)
+	pubKey, err := x509.ParsePKIXPublicKey(rs.PubKey)
+	if err != nil {
+		return nil, err
+	}
+	return FingerprintFromPublicKey(pubKey)
 }
 
 const (

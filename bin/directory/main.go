@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -45,10 +44,9 @@ func parseCert(rawPEM string) (*x509.Certificate, error) {
 
 // Parsed datatype for convenience.
 type announceReq struct {
-	addresses   []url.URL
-	relays      []url.URL
-	certificate *x509.Certificate
-	recordSet   *sep.DirectoryRecordSet
+	addresses []url.URL
+	relays    []url.URL
+	recordSet *sep.DirectoryRecordSet
 }
 
 func decodeRequest(r *http.Request) (*announceReq, error) {
@@ -62,12 +60,7 @@ func decodeRequest(r *http.Request) (*announceReq, error) {
 		return nil, err
 	}
 
-	pubkeyDer, err := x509.MarshalPKIXPublicKey(parsedCert.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	fpFromCert, err := sep.FingerprintFromCertificate(parsedCert.Raw)
+	remoteFp, err := sep.FingerprintFromPublicKey(parsedCert.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -78,19 +71,11 @@ func decodeRequest(r *http.Request) (*announceReq, error) {
 			return nil, err
 		}
 
-		if !bytes.Equal(pubkeyDer, rs.PubKey) {
-			return nil, fmt.Errorf("publickey does not match certificate")
-		}
-
-		if ok, err := rs.CheckSignature(fpFromCert); !ok || err != nil {
+		if ok, err := rs.CheckSignature(remoteFp); !ok || err != nil {
 			return nil, fmt.Errorf("invalid signature")
 		}
 	}
-
-	return &announceReq{
-		certificate: parsedCert,
-		recordSet:   &rs,
-	}, nil
+	return &announceReq{recordSet: &rs}, nil
 }
 
 type apiServer struct {
@@ -236,7 +221,7 @@ func (s *apiServer) putAnnounce(w http.ResponseWriter, r *http.Request) {
 	req, err := decodeRequest(r)
 	if err != nil {
 		rlog.Warning(err)
-		helpers.SendJSONError(w, err.Error(), http.StatusInternalServerError)
+		helpers.SendJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

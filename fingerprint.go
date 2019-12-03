@@ -38,12 +38,7 @@ func FingerprintFromCertificate(cert []byte) (*Fingerprint, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	pubkeyDer, err := x509.MarshalPKIXPublicKey(parsedCert.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	return FingerprintFromPublicKeyDER(pubkeyDer)
+	return FingerprintFromPublicKey(parsedCert.PublicKey)
 }
 
 // FingerprintFromNIString parses an NI string to type fingerprint.
@@ -52,7 +47,6 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if err := checkDigest(niURL.Alg); err != nil {
 		return nil, err
 	}
@@ -62,7 +56,7 @@ func FingerprintFromNIString(rawFingerprint string) (*Fingerprint, error) {
 func FingerprintFromPublicKey(pubKey crypto.PublicKey) (*Fingerprint, error) {
 	p, ok := pubKey.(ed25519.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("PubKey: invalid key")
+		return nil, ErrInvalidKey
 	}
 
 	d := internalDigest(p)
