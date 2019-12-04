@@ -11,7 +11,6 @@ import (
 )
 
 type UDPConn struct {
-	rawConn           *net.UDPConn
 	dtlsConn          *dtls.Conn
 	config            *Config
 	localFingerprint  *Fingerprint
@@ -62,12 +61,11 @@ func udpClient(conn *net.UDPConn, config *Config) (*UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	sepConn.rawConn = conn
 	return sepConn, nil
 }
 
 func (c *UDPConn) RawConnection() net.Conn {
-	return c.rawConn
+	return nil
 }
 
 func (c *UDPConn) Read(b []byte) (int, error) {
