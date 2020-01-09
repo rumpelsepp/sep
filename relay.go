@@ -34,7 +34,7 @@ type RelayMessage struct {
 	Signature []byte
 }
 
-func (m *RelayMessage) digest() []byte {
+func (m *RelayMessage) concat() []byte {
 	ttlBin := make([]byte, 2)
 	binary.BigEndian.PutUint16(ttlBin, m.TTL)
 
@@ -46,8 +46,7 @@ func (m *RelayMessage) digest() []byte {
 	res = append(res, ttlBin...)
 	res = append(res, m.PubKey...)
 	res = append(res, m.Version)
-
-	return internalDigest([]byte(res))
+	return res
 }
 
 //  SHA3-256(Type | Initiator | Target | Timestamp | PubKey)
@@ -65,7 +64,7 @@ func (m *RelayMessage) Sign(privateKey crypto.PrivateKey) error {
 	m.PubKey = derPubKey
 	m.Timestamp = time.Now()
 	m.TTL = 10
-	m.Signature = ed25519.Sign(privKey, m.digest())
+	m.Signature = ed25519.Sign(privKey, m.concat())
 
 	return nil
 }
@@ -86,7 +85,7 @@ func (m *RelayMessage) CheckSignature(fingerprint *Fingerprint) (bool, error) {
 		return false, fmt.Errorf("invalid key")
 	}
 
-	if ok := ed25519.Verify(remotePubKey, m.digest(), m.Signature); !ok {
+	if ok := ed25519.Verify(remotePubKey, m.concat(), m.Signature); !ok {
 		return false, nil
 	}
 
