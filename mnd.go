@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fxamacker/cbor"
+	"github.com/fxamacker/cbor/v2"
 )
 
 func mndBroadcastRequest(payload *DirectoryRecordSet) {
@@ -33,7 +33,7 @@ func mndBroadcastRequest(payload *DirectoryRecordSet) {
 			continue
 		}
 
-		encoder := cbor.NewEncoder(conn, cborEncodingOpts)
+		encoder := cbor.NewEncoder(conn)
 		if err := encoder.Encode(payload); err != nil {
 			Logger.Warningf("%v", err)
 			continue
@@ -151,7 +151,7 @@ func (m *MNDListener) ServeRecordSet(recordSet *DirectoryRecordSet) error {
 	// This is an length check of the resulting record, arbitrarily set to 500
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	encoder := cbor.NewEncoder(writer, cborEncodingOpts)
+	encoder := cbor.NewEncoder(writer)
 	if err := encoder.Encode(m.payload); err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func (m *MNDListener) listen(listenAddr string) error {
 			m.payload.TTL = 5
 			m.payload.Sign(m.privateKey)
 
-			encoder := cbor.NewEncoder(respConn, cborEncodingOpts)
+			encoder := cbor.NewEncoder(respConn)
 			if err := encoder.Encode(m.payload); err != nil {
 				Logger.Warning(err)
 				continue

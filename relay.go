@@ -11,7 +11,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/fxamacker/cbor"
+	"github.com/fxamacker/cbor/v2"
 )
 
 const (
@@ -178,7 +178,7 @@ func (c *RelayClient) Dial(target *Fingerprint) (Conn, error) {
 
 	relay := RelayNode{
 		Conn:    relayConn,
-		Encoder: cbor.NewEncoder(relayConn, cborEncodingOpts),
+		Encoder: cbor.NewEncoder(relayConn),
 		Decoder: cbor.NewDecoder(relayConn),
 		Keypair: c.config.TLSConfig.Certificates[0],
 		Trusted: append(c.config.AllowedPeers, c.relay),
@@ -217,7 +217,7 @@ func (c *RelayClient) Accept() (Conn, error) {
 
 	relay := RelayNode{
 		Conn:    relayConn,
-		Encoder: cbor.NewEncoder(relayConn, cborEncodingOpts),
+		Encoder: cbor.NewEncoder(relayConn),
 		Decoder: cbor.NewDecoder(relayConn),
 		Keypair: c.config.TLSConfig.Certificates[0],
 		Trusted: append(c.config.AllowedPeers, c.relay),

@@ -8,7 +8,7 @@ import (
 	"git.sr.ht/~rumpelsepp/sep"
 	"git.sr.ht/~rumpelsepp/sep/sephelper"
 	"git.sr.ht/~sircmpwn/getopt"
-	"github.com/fxamacker/cbor"
+	"github.com/fxamacker/cbor/v2"
 )
 
 var logger = rlog.NewLogger(os.Stderr)
@@ -163,7 +163,7 @@ func main() {
 		relay := sep.RelayNode{
 			Conn:    conn,
 			Keypair: keypair,
-			Encoder: cbor.NewEncoder(conn, cbor.EncOptions{}),
+			Encoder: cbor.NewEncoder(conn),
 			Decoder: cbor.NewDecoder(conn),
 		}
 

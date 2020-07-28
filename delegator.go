@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fxamacker/cbor"
+	"github.com/fxamacker/cbor/v2"
 )
 
 const (
@@ -33,7 +33,7 @@ type DelegatorNode struct {
 func NewDelegatorNode(conn Conn) *DelegatorNode {
 	return &DelegatorNode{
 		Conn:    conn,
-		Encoder: cbor.NewEncoder(conn, cborEncodingOpts),
+		Encoder: cbor.NewEncoder(conn),
 		Decoder: cbor.NewDecoder(conn),
 	}
 }

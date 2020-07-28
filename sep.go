@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"git.sr.ht/~rumpelsepp/rlog"
-	"github.com/fxamacker/cbor"
 	"github.com/pion/dtls"
 )
 
@@ -34,9 +33,8 @@ const (
 // )
 
 var (
-	cborEncodingOpts = cbor.EncOptions{Canonical: true, TimeRFC3339: true}
-	Logger           = rlog.NewLogger(ioutil.Discard)
-	ErrInvalidKey    = errors.New("invalid key: only ed25519 keys are supported")
+	Logger        = rlog.NewLogger(ioutil.Discard)
+	ErrInvalidKey = errors.New("invalid key: only ed25519 keys are supported")
 )
 
 func init() {

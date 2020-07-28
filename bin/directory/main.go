@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -19,7 +20,7 @@ import (
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
 	"git.sr.ht/~sircmpwn/getopt"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 )
 
@@ -128,7 +129,7 @@ func (s *apiServer) getDiscover(w http.ResponseWriter, r *http.Request) {
 
 	key := fp.Canonical()
 
-	vals, err := s.redis.LRange(key, 0, -1).Result()
+	vals, err := s.redis.LRange(context.Background(), key, 0, -1).Result()
 	if err != nil {
 		helpers.SendJSONError(w, err.Error(), http.StatusInternalServerError)
 		return
