@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto"
+	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -24,23 +27,33 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func parseCert(rawPEM string) (*x509.Certificate, error) {
-	pemCert, err := url.QueryUnescape(rawPEM)
-	if err != nil {
-		return nil, fmt.Errorf("can't unescape cert: %w", err)
-	}
+func extractPublicKey(hdr http.Header) (crypto.PublicKey, error) {
+	if rawCert := hdr.Get("X-SSL-CERT"); rawCert != "" {
+		pemCert, err := url.QueryUnescape(rawCert)
+		if err != nil {
+			return nil, fmt.Errorf("can't unescape cert: %w", err)
+		}
 
-	pemBlock, _ := pem.Decode([]byte(pemCert))
-	if pemBlock == nil || pemBlock.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("cannot decode PEM")
-	}
+		pemBlock, _ := pem.Decode([]byte(pemCert))
+		if pemBlock == nil || pemBlock.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("cannot decode PEM")
+		}
 
-	parsedCert, err := x509.ParseCertificate(pemBlock.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse cert: %w", err)
-	}
+		parsedCert, err := x509.ParseCertificate(pemBlock.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse cert: %w", err)
+		}
 
-	return parsedCert, nil
+		return parsedCert.PublicKey, nil
+	}
+	if rawPubKey := hdr.Get("X-PUBLIC-Key"); rawPubKey != "" {
+		rawDecodedKey, err := hex.DecodeString(rawPubKey)
+		if err != nil {
+			return nil, err
+		}
+		return ed25519.PublicKey(rawDecodedKey), nil
+	}
+	return nil, fmt.Errorf("faulty reverse proxy config")
 }
 
 // Parsed datatype for convenience.
@@ -56,12 +69,12 @@ func decodeRequest(r *http.Request) (*announceReq, error) {
 		err error
 	)
 
-	parsedCert, err := parseCert(r.Header.Get("X-SSL-CERT"))
+	pubKey, err := extractPublicKey(r.Header)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteFp, err := sep.FingerprintFromPublicKey(parsedCert.PublicKey)
+	remoteFp, err := sep.FingerprintFromPublicKey(pubKey)
 	if err != nil {
 		return nil, err
 	}
