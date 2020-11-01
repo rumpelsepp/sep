@@ -258,24 +258,16 @@ func (s *apiServer) createHandler() http.Handler {
 }
 
 type runtimeOptions struct {
-	bind      string
-	bufsize   int
-	redis     string
-	zone      string
-	dnsserver string
-	ttl       int
-	verbose   bool
-	help      bool
+	bind    string
+	redis   string
+	verbose bool
+	help    bool
 }
 
 func main() {
 	opts := runtimeOptions{}
 	getopt.StringVar(&opts.bind, "b", "127.0.0.1:8000", "Specify listening address")
 	getopt.StringVar(&opts.redis, "r", "redis://localhost:6379/0", "Redis URL")
-	getopt.StringVar(&opts.zone, "z", "ace-sep.de", "Specify managed DNS zone")
-	getopt.StringVar(&opts.dnsserver, "d", "127.0.0.1", "DNS server to be managed")
-	getopt.IntVar(&opts.ttl, "t", 60, "Create DNS records with this TTL")
-	getopt.IntVar(&opts.bufsize, "s", 65536, "Set request queue size")
 	getopt.BoolVar(&opts.verbose, "v", false, "Enable verbose logging")
 	getopt.BoolVar(&opts.help, "h", false, "Show this page and exit")
 	getopt.Parse()
@@ -289,11 +281,6 @@ func main() {
 		rlog.SetLogLevel(rlog.DEBUG)
 		sep.Logger.SetWriter(os.Stderr)
 		rlog.SetLogLevel(rlog.DEBUG)
-	}
-
-	bindBackend, err := newNsupdateBackend(opts.dnsserver, opts.zone, opts.ttl)
-	if err != nil {
-		rlog.Critln(err)
 	}
 
 	redisOpts, err := redis.ParseURL(opts.redis)
@@ -318,7 +305,7 @@ func main() {
 	}
 
 	apiSrv := apiServer{
-		backends: []backend{redisBackend, bindBackend},
+		backends: []backend{redisBackend},
 		redis:    redisBackend.client,
 		expired:  expired,
 	}

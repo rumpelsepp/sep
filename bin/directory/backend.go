@@ -2,20 +2,19 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"git.sr.ht/~rumpelsepp/rlog"
 	"git.sr.ht/~rumpelsepp/sep"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -61,12 +60,12 @@ type redisBackend struct {
 
 func newRedisBackend(opts *redis.Options) (*redisBackend, error) {
 	redisClient := redis.NewClient(opts)
-	if _, err := redisClient.Ping().Result(); err != nil {
+	if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
 		return nil, err
 	}
 
 	// Enable redis expire stuff.
-	if err := redisClient.ConfigSet("notify-keyspace-events", "Ex").Err(); err != nil {
+	if err := redisClient.ConfigSet(context.Background(), "notify-keyspace-events", "Ex").Err(); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +87,7 @@ func (b *redisBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
 		timestamp = rs.Timestamp.Format(time.RFC3339)
 	)
 
-	if val, err := b.client.Exists(key).Result(); err != nil {
+	if val, err := b.client.Exists(context.Background(), key).Result(); err != nil {
 		return err
 	} else {
 		if val == 1 {
@@ -97,43 +96,43 @@ func (b *redisBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
 	}
 
 	for i := 0; i < len(rs.Addresses); i++ {
-		err = b.client.RPush(key, recordTypeAddress+"="+rs.Addresses[i]).Err()
+		err = b.client.RPush(context.Background(), key, recordTypeAddress+"="+rs.Addresses[i]).Err()
 		if err != nil {
 		}
 	}
 
 	for i := 0; i < len(rs.Relays); i++ {
-		err = b.client.RPush(key, recordTypeRelay+"="+rs.Relays[i]).Err()
+		err = b.client.RPush(context.Background(), key, recordTypeRelay+"="+rs.Relays[i]).Err()
 		if err != nil {
 		}
 	}
 
-	err = b.client.RPush(key, recordTypeBlob+"="+blob).Err()
+	err = b.client.RPush(context.Background(), key, recordTypeBlob+"="+blob).Err()
 	if err != nil {
 		return err
 	}
 
-	err = b.client.RPush(key, recordTypeSignature+"="+signature).Err()
+	err = b.client.RPush(context.Background(), key, recordTypeSignature+"="+signature).Err()
 	if err != nil {
 		return err
 	}
 
-	err = b.client.RPush(key, recordTypeTimestamp+"="+timestamp).Err()
+	err = b.client.RPush(context.Background(), key, recordTypeTimestamp+"="+timestamp).Err()
 	if err != nil {
 		return err
 	}
 
-	err = b.client.RPush(key, recordTypePubKey+"="+pubkey).Err()
+	err = b.client.RPush(context.Background(), key, recordTypePubKey+"="+pubkey).Err()
 	if err != nil {
 		return err
 	}
 
-	err = b.client.RPush(key, fmt.Sprintf("%s=%d", recordTypeTTL, rs.TTL)).Err()
+	err = b.client.RPush(context.Background(), key, fmt.Sprintf("%s=%d", recordTypeTTL, rs.TTL)).Err()
 	if err != nil {
 		return err
 	}
 
-	err = b.client.Expire(key, time.Duration(rs.TTL)*time.Second).Err()
+	err = b.client.Expire(context.Background(), key, time.Duration(rs.TTL)*time.Second).Err()
 	if err != nil {
 		return err
 	}
@@ -144,19 +143,19 @@ func (b *redisBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
 }
 
 func (b *redisBackend) rmRecordSet(fp *sep.Fingerprint) error {
-	return b.client.Del(fp.Canonical()).Err()
+	return b.client.Del(context.Background(), fp.Canonical()).Err()
 }
 
 func (b *redisBackend) awaitExpireEvents() (<-chan *sep.Fingerprint, error) {
 	ch := make(chan *sep.Fingerprint, 32)
 
 	go func() {
-		pubsub := b.client.Subscribe("__keyevent@0__:expired")
+		pubsub := b.client.Subscribe(context.Background(), "__keyevent@0__:expired")
 		defer pubsub.Close()
 		defer close(ch)
 
 		for {
-			msg, err := pubsub.ReceiveMessage()
+			msg, err := pubsub.ReceiveMessage(context.Background())
 			if err != nil {
 				rlog.Warning(err)
 				break
@@ -308,125 +307,4 @@ func (m *nsupdateManager) kill() error {
 		return err
 	}
 	return m.wait()
-}
-
-type nsupdateBackend struct {
-	manager *nsupdateManager
-	mutex   sync.Mutex
-	zone    string
-}
-
-func newNsupdateBackend(host, zone string, ttl int) (*nsupdateBackend, error) {
-	manager := &nsupdateManager{
-		zone:      zone,
-		dnsserver: host,
-		ttl:       ttl,
-	}
-	if err := manager.spawn(); err != nil {
-		return nil, err
-	}
-	return &nsupdateBackend{manager: manager}, nil
-}
-
-func (b *nsupdateBackend) addRecordSet(rs *sep.DirectoryRecordSet) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	// If the blob is too big skip DNS entirely.
-	if len(rs.Blob) >= 2*1024 {
-		return errors.New("blob is too large")
-	}
-
-	var (
-		blob      = base64.StdEncoding.EncodeToString(rs.Blob)
-		pubkey    = base64.StdEncoding.EncodeToString(rs.PubKey)
-		signature = base64.StdEncoding.EncodeToString(rs.Signature)
-		timestamp = rs.Timestamp.Format(time.RFC3339)
-		ttl       = 60
-	)
-
-	fp, err := rs.Fingerprint()
-	if err != nil {
-		return err
-	}
-	fp.Authority = b.manager.zone
-	b.manager.delEntry(fp.FQDN())
-
-	// Add addresses
-	addrURLs := parseURLs(rs.Addresses)
-	for _, addr := range addrURLs {
-		host := addr.Hostname()
-		if ip := net.ParseIP(host); ip != nil {
-			if ip.To4() != nil {
-				if err := b.manager.addARecord(fp, ip.String(), ttl); err != nil {
-					return err
-				}
-			} else {
-				if err := b.manager.addAAAARecord(fp, ip.String(), ttl); err != nil {
-					return err
-				}
-			}
-		} else {
-			return fmt.Errorf("no valid ip address: %s", ip)
-		}
-
-		// Add TXT records
-		if err := b.manager.addTXTRecord(fp, recordTypeAddress, addr.String(), ttl); err != nil {
-			return err
-		}
-	}
-
-	// Add relays
-	relayURLs := parseURLs(rs.Relays)
-	for _, relay := range relayURLs {
-		if err := b.manager.addTXTRecord(fp, recordTypeRelay, relay.String(), ttl); err != nil {
-			return err
-		}
-	}
-
-	// Add blob
-	if blob != "" {
-		if err := b.manager.addTXTRecord(fp, recordTypeBlob, blob, ttl); err != nil {
-			return err
-		}
-	}
-
-	// Add TTL
-	rsTTL := fmt.Sprintf("%d", rs.TTL)
-	if err := b.manager.addTXTRecord(fp, recordTypeTTL, rsTTL, ttl); err != nil {
-		return err
-	}
-
-	// Add timestamp
-	if err := b.manager.addTXTRecord(fp, recordTypeTimestamp, timestamp, ttl); err != nil {
-		return err
-	}
-
-	// Add pubkey
-	if err := b.manager.addTXTRecord(fp, recordTypePubKey, pubkey, ttl); err != nil {
-		return err
-	}
-
-	// Add sig
-	if err := b.manager.addTXTRecord(fp, recordTypeSignature, signature, ttl); err != nil {
-		return err
-	}
-
-	// Flush it!
-	return b.manager.commit()
-}
-
-func (b *nsupdateBackend) rmRecordSet(fp *sep.Fingerprint) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	fp.Authority = b.manager.zone
-	return b.manager.delEntry(fp.FQDN())
-}
-
-func (b *nsupdateBackend) awaitExpireEvents() (<-chan *sep.Fingerprint, error) {
-	return nil, errNotSupported
-}
-
-func (b *nsupdateBackend) close() error {
-	return b.manager.kill()
 }
