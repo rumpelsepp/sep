@@ -84,9 +84,14 @@ func (c *Config) Clone() Config {
 	allowed := make([]*Fingerprint, len(c.AllowedPeers))
 	copy(allowed, c.AllowedPeers)
 
+	var dtlsConfig dtls.Config
+	if c.DTLSConfig != nil {
+		dtlsConfig = *c.DTLSConfig
+	}
+
 	return Config{
 		TLSConfig:    c.TLSConfig.Clone(),
-		DTLSConfig:   &(*c.DTLSConfig),
+		DTLSConfig:   &dtlsConfig,
 		AllowedPeers: allowed,
 		TrustDB:      c.TrustDB,
 		Directory:    c.Directory,
