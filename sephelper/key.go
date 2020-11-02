@@ -20,7 +20,7 @@ import (
 func GenKeyPEM() ([]byte, error) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("generate private key: %w", priv)
+		return nil, fmt.Errorf("generate private key: %w", err)
 	}
 
 	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
@@ -62,7 +62,7 @@ func GenCertificate(priv ed25519.PrivateKey) (tls.Certificate, error) {
 func GenTLSKeypair() (tls.Certificate, error) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("generate private key: %w", priv)
+		return tls.Certificate{}, fmt.Errorf("generate private key: %w", err)
 	}
 	return GenCertificate(priv)
 }

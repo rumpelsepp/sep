@@ -190,7 +190,6 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 	if err != nil {
 		return nil, err
 	}
-
 	addrs, err := d.config.Directory.DiscoverAddresses(fingerprint)
 	if err != nil {
 		return nil, err
@@ -207,7 +206,6 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 		if network == "" {
 			network = "tcp"
 		}
-
 		if !strings.Contains(network, "tcp") {
 			Logger.Debugf("wrong network: %s", network)
 			continue
@@ -233,9 +231,7 @@ func (d *tcpDialer) DialTimeout(network, target string, timeout time.Duration) (
 			Logger.Debugln(err)
 			continue
 		}
-
 		return c, nil
 	}
-
 	return nil, fmt.Errorf("could not connect to: %s", target)
 }

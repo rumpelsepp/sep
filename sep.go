@@ -13,11 +13,7 @@ import (
 	"github.com/pion/dtls"
 )
 
-const (
-	DefaultPort             = "33000"
-	DefaultFingerprintSuite = "sha3-256"
-	DefaultResolveDomain    = "ace-sep.de"
-)
+const DefaultFingerprintSuite = "sha3-256"
 
 var (
 	Logger        = rlog.NewLogger(ioutil.Discard)
@@ -74,7 +70,6 @@ func (c *Config) Clone() Config {
 	if c.DTLSConfig != nil {
 		dtlsConfig = *c.DTLSConfig
 	}
-
 	return Config{
 		TLSConfig:    c.TLSConfig.Clone(),
 		DTLSConfig:   &dtlsConfig,
@@ -137,7 +132,6 @@ func MakeDefaultVerifier(allowed []*Fingerprint, database TrustDatabase) SEPVeri
 				}
 			}
 		}
-
 		return fmt.Errorf("peer is not trusted")
 	}
 }

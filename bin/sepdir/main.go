@@ -63,7 +63,7 @@ func main() {
 	dirClient := sep.NewDirectoryClient(opts.directory, tlsConfig)
 
 	if opts.put {
-		addrs, err := sephelper.GatherAllAddresses("tcp", sep.DefaultPort)
+		addrs, err := sephelper.GatherAllAddresses("tcp", "33000")
 		if err != nil {
 			rlog.Critln(err)
 		}

@@ -87,7 +87,6 @@ func (a *DirectoryRecordSet) CheckSignature(fingerprint *Fingerprint) (bool, err
 	if err != nil {
 		return false, err
 	}
-
 	pubKey, ok := pk.(ed25519.PublicKey)
 	if !ok {
 		return false, ErrInvalidKey
@@ -146,25 +145,20 @@ type DirectoryClient struct {
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 func NewDirectoryClient(addr string, config *tls.Config) *DirectoryClient {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: config,
-		},
-		Timeout: 10 * time.Second,
-	}
-
 	return &DirectoryClient{
 		AnnounceEndpoint: addr,
 		privateKey:       config.Certificates[0].PrivateKey,
-		httpClient:       client,
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: config,
+			},
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
 // Announce serves as universal function call for announcing a given record set.
 // Depending on the AnnounceFlags set different schemes are executed simultaneously.
-// The record set is signed prior to sending.
-//  - HTTPs : via HTTP PUT and validate signature
-//  - MND   : Discover in local network with MND protocol
 func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	if err := payload.Sign(a.privateKey); err != nil {
 		return err
@@ -183,8 +177,7 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 	Logger.Debugf("PUT request to: %s", u.String())
 	Logger.Debugf("JSON payload: %s", b)
 
-	reader := bytes.NewReader(b)
-	req, err := http.NewRequest(http.MethodPut, u.String(), reader)
+	req, err := http.NewRequest(http.MethodPut, u.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -203,7 +196,6 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 		if body, err := ioutil.ReadAll(resp.Body); err != nil {
 			Logger.Warningln(string(body))
 		}
-
 		return fmt.Errorf("Status Code %d", resp.StatusCode)
 	}
 
@@ -214,22 +206,18 @@ func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
 
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) error {
-	payload := &DirectoryRecordSet{
+	return a.Announce(&DirectoryRecordSet{
 		Addresses: addresses,
 		TTL:       ttl,
-	}
-	return a.Announce(payload)
+	})
 }
 
 // AnnounceBlob is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) error {
-	var (
-		payload = &DirectoryRecordSet{
-			Blob: data,
-			TTL:  ttl,
-		}
-	)
-	return a.Announce(payload)
+	return a.Announce(&DirectoryRecordSet{
+		Blob: data,
+		TTL:  ttl,
+	})
 }
 
 func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
@@ -296,9 +284,7 @@ func (a *DirectoryClient) DiscoverAddresses(fingerprint *Fingerprint) ([]string,
 	if err != nil {
 		return nil, err
 	}
-
 	sortByRFC6724(payload.Addresses)
-
 	return payload.Addresses, nil
 }
 
@@ -309,11 +295,9 @@ func (a *DirectoryClient) DiscoverBlob(fingerprint *Fingerprint) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-
 	if len(payload.Blob) == 0 {
 		return nil, fmt.Errorf("no blob available for: %s", fingerprint.String())
 	}
-
 	return payload.Blob, nil
 }
 
@@ -323,6 +307,5 @@ func (a *DirectoryClient) DiscoverRelays(fingerprint *Fingerprint) ([]string, er
 	if err != nil {
 		return nil, err
 	}
-
 	return payload.Relays, nil
 }

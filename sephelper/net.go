@@ -37,7 +37,6 @@ func GatherAllAddresses(transport, port string) ([]string, error) {
 			}
 		}
 	}
-
 	return addrs, nil
 }
 
