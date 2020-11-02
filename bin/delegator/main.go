@@ -103,8 +103,7 @@ func main() {
 	tlsConfig := sephelper.NewDefaultTLSConfig(keypair)
 	tlsConfig.VerifyPeerCertificate = sep.VerifierAllowAll
 	config := sep.Config{
-		TCPFastOpen: true,
-		TLSConfig:   tlsConfig,
+		TLSConfig: tlsConfig,
 	}
 
 	ln, err := sep.Listen("tcp", opts.listenAddr, config)
@@ -119,7 +118,7 @@ func main() {
 	fmt.Printf("%+v\n", conf)
 
 	tlsConfigDir := sephelper.NewDefaultTLSConfig(keypair)
-	dirClient := sep.NewDirectoryClient("api"+opts.directory, tlsConfigDir, nil)
+	dirClient := sep.NewDirectoryClient("sep"+opts.directory, tlsConfigDir)
 	// TODO: get port from cli
 	ann := sephelper.Announcer{
 		DirClient:     dirClient,

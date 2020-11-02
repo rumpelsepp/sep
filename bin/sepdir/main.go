@@ -60,7 +60,7 @@ func main() {
 	}
 
 	tlsConfig := sephelper.NewDefaultTLSConfig(keypair)
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, tlsConfig, nil)
+	dirClient := sep.NewDirectoryClient(opts.directory, tlsConfig)
 
 	if opts.put {
 		addrs, err := sephelper.GatherAllAddresses("tcp", sep.DefaultPort)

@@ -1,7 +1,6 @@
 package sep
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -44,7 +43,7 @@ func initTCP(conn *tls.Conn, config *Config) (*TCPConn, error) {
 
 	Logger.Debugf(
 		"connected %s: %s [%s] <-> %s [%s]",
-		tlsCipherSuiteNames[state.CipherSuite],
+		tls.CipherSuiteName(state.CipherSuite),
 		conn.LocalAddr(),
 		localFingerprint.Short(),
 		conn.RemoteAddr(),
@@ -138,16 +137,7 @@ func tcpListen(network, address string, config *Config) (*tcpListener, error) {
 
 	switch network {
 	case "tcp", "tcp4", "tcp6":
-		if config.TCPFastOpen {
-			lc := net.ListenConfig{
-				Control: setTCPFastOpenCallback,
-			}
-
-			ln, err = lc.Listen(context.Background(), network, address)
-		} else {
-			ln, err = net.Listen(network, address)
-		}
-
+		ln, err = net.Listen(network, address)
 		if err != nil {
 			return nil, err
 		}
@@ -185,18 +175,8 @@ type tcpDialer struct {
 }
 
 func newTCPDialer(config Config) Dialer {
-	var dialer *net.Dialer
-
-	if config.TCPFastOpen {
-		dialer = &net.Dialer{
-			Control: setTCPFastOpenConnectCallback,
-		}
-	} else {
-		dialer = &net.Dialer{}
-	}
-
 	return &tcpDialer{
-		dialer: dialer,
+		dialer: &net.Dialer{},
 		config: &config,
 	}
 }

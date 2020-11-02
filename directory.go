@@ -6,16 +6,13 @@ import (
 	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -140,36 +137,14 @@ func (rs *DirectoryRecordSet) Fingerprint() (*Fingerprint, error) {
 	return FingerprintFromPublicKey(pubKey)
 }
 
-const (
-	// DiscoverFlagUseDNS defines whether system DNS is used during discovery
-	DiscoverFlagUseDNS = 1 << iota
-	// DiscoverFlagUseDoH defines whether DNS over HTTPS is used during discovery
-	DiscoverFlagUseDoH
-	// DiscoverFlagUseHTTPS defines whether HTTPS GET is used during discovery
-	DiscoverFlagUseHTTPS
-	// DiscoverFlagUseMND defines whether local broadcast is used during discovery
-	DiscoverFlagUseMND
-)
-
-const (
-	AnnounceFlagUseHTTPS = 1 << iota
-	AnnounceFlagUseMND
-)
-
 type DirectoryClient struct {
 	AnnounceEndpoint string
-	DiscoverFlags    int
-	DoHEndpoint      string
-	AnnounceFlags    int
 
 	httpClient *http.Client
 	privateKey crypto.PrivateKey
-
-	MNDListener *MNDListener
 }
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
-// TODO Add more details about those defaults, e.g. DiscoverFlags
 func NewDirectoryClient(addr string, config *tls.Config) *DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -180,14 +155,8 @@ func NewDirectoryClient(addr string, config *tls.Config) *DirectoryClient {
 
 	return &DirectoryClient{
 		AnnounceEndpoint: addr,
-		DoHEndpoint:      DefaultDoHURI,
 		privateKey:       config.Certificates[0].PrivateKey,
 		httpClient:       client,
-		DiscoverFlags: DiscoverFlagUseDoH |
-			DiscoverFlagUseHTTPS,
-		AnnounceFlags: AnnounceFlagUseHTTPS,
-
-		MNDListener: nil,
 	}
 }
 
@@ -197,38 +166,6 @@ func NewDirectoryClient(addr string, config *tls.Config) *DirectoryClient {
 //  - HTTPs : via HTTP PUT and validate signature
 //  - MND   : Discover in local network with MND protocol
 func (a *DirectoryClient) Announce(payload *DirectoryRecordSet) error {
-	if a.AnnounceFlags == 0 {
-		return fmt.Errorf("no AnnounceFlags set")
-	}
-
-	if (a.AnnounceFlags & AnnounceFlagUseMND) != 0 {
-		err := a.announceViaMND(payload)
-		if err != nil {
-			Logger.Warningf("announce via MND failed: %s", err)
-		} else {
-			Logger.Debugf("announce via MND successful")
-		}
-	}
-
-	// This just reimplements the old .Announce functionality for now.
-	var (
-		err error
-	)
-	if (a.AnnounceFlags & AnnounceFlagUseHTTPS) != 0 {
-		err = a.announceViaHTTPS(payload)
-		if err != nil {
-			Logger.Warningf("announce via HTTPS failed: %s", err)
-		} else {
-			Logger.Debugf("announce via HTTPS successful")
-		}
-	}
-
-	return err
-}
-
-// announceViaHTTPS signs the record set and sends it to the directory in a
-// json-encoded HTTP PUT request.
-func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
 	if err := payload.Sign(a.privateKey); err != nil {
 		return err
 	}
@@ -275,23 +212,12 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
 	return nil
 }
 
-// announceViaMND checks for an attached MND listener and if present updates the
-// RecordSet.
-func (a *DirectoryClient) announceViaMND(payload *DirectoryRecordSet) error {
-	if a.MNDListener == nil {
-		return fmt.Errorf("no attached MNDListener ")
-	}
-
-	return a.MNDListener.ServeRecordSet(payload)
-}
-
 // AnnounceAddresses is a helper function that wraps the more generic Announce()
 func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) error {
 	payload := &DirectoryRecordSet{
 		Addresses: addresses,
 		TTL:       ttl,
 	}
-
 	return a.Announce(payload)
 }
 
@@ -303,220 +229,19 @@ func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) error {
 			TTL:  ttl,
 		}
 	)
-
 	return a.Announce(payload)
 }
 
-// Discover serves as universal function call for discovering the record set of a
-// fingerprint. Only record sets with valid signatures are returned. Depending
-// on the DiscoverFlags set different schemes are tried, but always in this order:
-//  - MND   : Discover in local network with UDP broadcasts
-//  - DoH   : Discover via the DoH JSON flavor using HTTP GET.
-//  - DNS   : Discover via DNS TXT records and validate signature
-//  - HTTPS : Discover via HTTPS GET and validate signature
 func (a *DirectoryClient) Discover(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	if a.DiscoverFlags == 0 {
-		return nil, fmt.Errorf("no DiscoverFlags present")
-	}
-
 	Logger.Debugf("discovering '%s'", fingerprint.String())
 
-	if (a.DiscoverFlags & DiscoverFlagUseMND) != 0 {
-		payload, err := a.discoverViaMND(fingerprint)
-		if err == nil {
-			// FIXME: This debug message is fugly!
-			Logger.Debugf("got RecordSet via MND: %s", payload.Pretty())
-			return payload, nil
-		}
-		Logger.Debugf("discover via MND failed: %s", err)
+	payload, err := a.discoverViaHTTPS(fingerprint)
+	if err == nil {
+		Logger.Debugf("got RecordSet via HTTP: %s", payload.Pretty())
+		return payload, nil
 	}
-
-	if (a.DiscoverFlags & DiscoverFlagUseDoH) != 0 {
-		payload, err := a.discoverViaDoH(fingerprint)
-		if err == nil {
-			Logger.Debugf("got RecordSet via DoH: %s", payload.Pretty())
-			return payload, nil
-		}
-		Logger.Debugf("discover via DoH failed: %s", err)
-	}
-
-	if (a.DiscoverFlags & DiscoverFlagUseDNS) != 0 {
-		payload, err := a.discoverViaDNS(fingerprint)
-		if err == nil {
-			Logger.Debugf("got RecordSet via DNS: %s", payload.Pretty())
-			return payload, nil
-		}
-		Logger.Debugf("discover via system dns failed: %s", err)
-	}
-
-	if (a.DiscoverFlags & DiscoverFlagUseHTTPS) != 0 {
-		payload, err := a.discoverViaHTTPS(fingerprint)
-		if err == nil {
-			Logger.Debugf("got RecordSet via HTTP: %s", payload.Pretty())
-			return payload, nil
-		}
-		Logger.Debugf("discover via HTTPS failed: %s", err)
-	}
-
+	Logger.Debugf("discover via HTTPS failed: %s", err)
 	return nil, fmt.Errorf("fingerprint '%s' not found", fingerprint.String())
-}
-
-type dohJSON struct {
-	Status   int
-	TC       bool
-	RD       bool
-	RA       bool
-	CD       bool
-	Question []struct {
-		Name string `json:"name"`
-		Type int    `json:"type"`
-	}
-	Answer []struct {
-		Name string `json:"name"`
-		Type int    `json:"type"`
-		TTL  int
-		Data string `json:"data"`
-	}
-}
-
-func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
-	var (
-		err     error
-		payload DirectoryRecordSet
-	)
-
-	for _, txt := range txts {
-		parts := strings.SplitN(strings.Trim(txt, "\""), "=", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("%s entry is corrupt", txt)
-		}
-
-		switch parts[0] {
-		case "address":
-			parsedURL, err := url.Parse(parts[1])
-			if err != nil {
-				return nil, err
-			}
-			payload.Addresses = append(payload.Addresses, parsedURL.String())
-
-		case "relay":
-			parsedURL, err := url.Parse(parts[1])
-			if err != nil {
-				return nil, err
-			}
-			payload.Relays = append(payload.Relays, parsedURL.String())
-
-		case "pubkey":
-			payload.PubKey, err = base64.StdEncoding.DecodeString(parts[1])
-			if err != nil {
-				return nil, err
-			}
-
-		case "signature":
-			payload.Signature, err = base64.StdEncoding.DecodeString(parts[1])
-			if err != nil {
-				return nil, err
-			}
-
-		case "timestamp":
-			var tmp time.Time
-			if err := tmp.UnmarshalText([]byte(parts[1])); err != nil {
-				return nil, err
-			}
-			payload.Timestamp = tmp
-
-		case "ttl":
-			tmp, err := strconv.ParseUint(parts[1], 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			payload.TTL = uint(tmp)
-		}
-	}
-
-	return &payload, nil
-}
-
-func (a *DirectoryClient) discoverViaDoH(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	u := fmt.Sprintf(a.DoHEndpoint, fingerprint.FQDN())
-
-	req, err := http.NewRequest(http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("accept", "application/dns-json")
-
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", fingerprint.WellKnownURI(), resp.Status)
-	}
-
-	rawData, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	var rawPayload dohJSON
-	err = json.Unmarshal(rawData, &rawPayload)
-	if err != nil {
-		return nil, err
-	}
-
-	// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
-	if rawPayload.Status != 0 {
-		return nil, fmt.Errorf("dns error: %d", rawPayload.Status)
-	}
-
-	var txts []string
-	for _, record := range rawPayload.Answer {
-		txts = append(txts, record.Data)
-	}
-
-	payload, err := parseDNSResponse(txts)
-	if err != nil {
-		return nil, err
-	}
-
-	ok, err := payload.CheckSignature(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return payload, nil
-}
-
-// discoverViaDNS queries a record set of the given fingerprint from the directory
-// via DNS TXT records and verifies its signature.
-func (a *DirectoryClient) discoverViaDNS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	txts, err := net.LookupTXT(fingerprint.FQDN())
-	if err != nil {
-		return nil, err
-	}
-
-	payload, err := parseDNSResponse(txts)
-	if err != nil {
-		return nil, err
-	}
-
-	ok, err := payload.CheckSignature(fingerprint)
-	if err != nil {
-		return nil, err
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return payload, nil
 }
 
 // discoverViaHTTPS queries a record set of the given fingerprint from the directory
@@ -562,41 +287,6 @@ func (a *DirectoryClient) discoverViaHTTPS(fingerprint *Fingerprint) (*Directory
 	}
 
 	return &payload, nil
-}
-
-// discoverViaMND sends a discovery packet via udp to a broadcast address and
-// listens for the response of the queried node. If a response is received, the
-// signature of the record set is verified.
-func (a *DirectoryClient) discoverViaMND(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	Logger.Debugf("Discovering via MND: %s", fingerprint.String())
-
-	// Define request payload with target FP as bytes in blob entry
-	req := &DirectoryRecordSet{
-		TTL:  5,
-		Blob: fingerprint.Bytes(),
-	}
-
-	if err := req.Sign(a.privateKey); err != nil {
-		return nil, err
-	}
-
-	go mndBroadcastRequest(req)
-
-	resp, err := mndListenForResponse(fingerprint, 2*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	signatureOk, err := resp.CheckSignature(fingerprint)
-	if err != nil {
-		Logger.Debugf("signature check failed: %s", err)
-		return nil, err
-	}
-	if !signatureOk {
-		Logger.Debug("response has invalid signature")
-		return nil, fmt.Errorf("signature check failed")
-	}
-
-	return resp, nil
 }
 
 // DiscoverAddresses is a helper function that wraps the more generic

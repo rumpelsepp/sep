@@ -38,7 +38,7 @@ func main() {
 	}
 
 	config := sephelper.NewDefaultTLSConfig(keypair)
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, config, nil)
+	dirClient := sep.NewDirectoryClient("sep."+opts.directory, config)
 
 	if opts.fetch != "" {
 		fingerprint, err := sep.FingerprintFromNIString(opts.fetch)

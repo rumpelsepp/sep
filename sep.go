@@ -17,20 +17,7 @@ const (
 	DefaultPort             = "33000"
 	DefaultFingerprintSuite = "sha3-256"
 	DefaultResolveDomain    = "ace-sep.de"
-	DefaultDoHURI           = "https://cloudflare-dns.com/dns-query?name=%s&type=TXT"
-
-	// DefaultMNDDiscoverPort is where packets are sent to during MND Discovery
-	DefaultMNDDiscoverPort = "7868"
-	// DefaultMNDResponsePort is where a response is expected during MND Discovery
-	DefaultMNDResponsePort = "7869"
 )
-
-// At the moment, those variables are not needed for broadcast discovery!
-// var (
-// 	MNDIPv4MulticastAddress = net.ParseIP("224.0.0.251")
-// 	MNDIPv6MulticastAddress = net.ParseIP("ff02::114") // TODO
-// 	MNDPort                 = 7868                     // ASCII: MD (Multicast Discovery)
-// )
 
 var (
 	Logger        = rlog.NewLogger(ioutil.Discard)
@@ -77,7 +64,6 @@ type Config struct {
 	AllowedPeers []*Fingerprint
 	TrustDB      TrustDatabase
 	Directory    *DirectoryClient
-	TCPFastOpen  bool
 }
 
 func (c *Config) Clone() Config {
@@ -95,7 +81,6 @@ func (c *Config) Clone() Config {
 		AllowedPeers: allowed,
 		TrustDB:      c.TrustDB,
 		Directory:    c.Directory,
-		TCPFastOpen:  c.TCPFastOpen,
 	}
 }
 
@@ -125,37 +110,6 @@ func NewDialer(transport string, config Config) (Dialer, error) {
 	}
 
 	return dialer, nil
-}
-
-// From go/src/crypto/tls/cipher_suites.go
-var tlsCipherSuiteNames = map[uint16]string{
-	0x0005: "TLS_RSA_WITH_RC4_128_SHA",
-	0x000a: "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
-	0x002f: "TLS_RSA_WITH_AES_128_CBC_SHA",
-	0x0035: "TLS_RSA_WITH_AES_256_CBC_SHA",
-	0x003c: "TLS_RSA_WITH_AES_128_CBC_SHA256",
-	0x009c: "TLS_RSA_WITH_AES_128_GCM_SHA256",
-	0x009d: "TLS_RSA_WITH_AES_256_GCM_SHA384",
-	0x1301: "TLS_AES_128_GCM_SHA256",
-	0x1302: "TLS_AES_256_GCM_SHA384",
-	0x1303: "TLS_CHACHA20_POLY1305_SHA256",
-	0x1304: "TLS_AES_128_CCM_SHA256",
-	0x1305: "TLS_AES_128_CCM_8_SHA256",
-	0xc007: "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",
-	0xc009: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-	0xc00a: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-	0xc011: "TLS_ECDHE_RSA_WITH_RC4_128_SHA",
-	0xc012: "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
-	0xc013: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-	0xc014: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-	0xc023: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
-	0xc027: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
-	0xc02f: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-	0xc02b: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-	0xc030: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-	0xc02c: "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-	0xcca8: "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
-	0xcca9: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
 }
 
 type SEPVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error

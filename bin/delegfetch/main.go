@@ -54,7 +54,7 @@ func main() {
 	}
 
 	tlsConfig := sephelper.NewDefaultTLSConfig(keypair)
-	dirClient := sep.NewDirectoryClient("api."+opts.directory, tlsConfig, nil)
+	dirClient := sep.NewDirectoryClient("sep."+opts.directory, tlsConfig)
 	config := sep.Config{
 		AllowedPeers: []*sep.Fingerprint{delegator},
 		Directory:    dirClient,
