@@ -256,7 +256,7 @@ func (a *DirectoryClient) announceViaHTTPS(payload *DirectoryRecordSet) error {
 	Logger.Debugf("JSON payload: %s", b)
 
 	reader := bytes.NewReader(b)
-	req, err := http.NewRequest("PUT", u.String(), reader)
+	req, err := http.NewRequest(http.MethodPut, u.String(), reader)
 	if err != nil {
 		return err
 	}
@@ -451,7 +451,7 @@ func parseDNSResponse(txts []string) (*DirectoryRecordSet, error) {
 func (a *DirectoryClient) discoverViaDoH(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
 	u := fmt.Sprintf(a.DoHEndpoint, fingerprint.FQDN())
 
-	req, err := http.NewRequest("GET", u, nil)
+	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -533,7 +533,7 @@ func (a *DirectoryClient) discoverViaDNS(fingerprint *Fingerprint) (*DirectoryRe
 // discoverViaHTTPS queries a record set of the given fingerprint from the directory
 // via HTTP GET and verifies its signature.
 func (a *DirectoryClient) discoverViaHTTPS(fingerprint *Fingerprint) (*DirectoryRecordSet, error) {
-	req, err := http.NewRequest("GET", fingerprint.WellKnownURI(), nil)
+	req, err := http.NewRequest(http.MethodGet, fingerprint.WellKnownURI(), nil)
 	if err != nil {
 		return nil, err
 	}
