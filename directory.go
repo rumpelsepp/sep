@@ -21,22 +21,15 @@ import (
 	"time"
 )
 
-type DirectoryOptions struct {
-	DNSTTL    int    `json:"dns_ttl"`
-	Suite     string `json:"suite"`
-	WholeCert bool   `json:"wholecert"`
-}
-
 type DirectoryRecordSet struct {
-	Addresses []string          `json:"addresses,omitempty"`
-	Relays    []string          `json:"relay,omitempty"`
-	Blob      []byte            `json:"blob,omitempty"`
-	PubKey    []byte            `json:"pubkey"`
-	TTL       uint              `json:"ttl"`
-	Timestamp time.Time         `json:"timestamp"`
-	Signature []byte            `json:"signature"`
-	Version   uint              `json:"version"`
-	Options   *DirectoryOptions `json:"options,omitempty"`
+	Addresses []string  `json:"addresses,omitempty"`
+	Relays    []string  `json:"relay,omitempty"`
+	Blob      []byte    `json:"blob,omitempty"`
+	PubKey    []byte    `json:"pubkey"`
+	TTL       uint      `json:"ttl"`
+	Timestamp time.Time `json:"timestamp"`
+	Signature []byte    `json:"signature"`
+	Version   uint      `json:"version"`
 }
 
 func (a *DirectoryRecordSet) concat() []byte {
@@ -171,14 +164,13 @@ type DirectoryClient struct {
 
 	httpClient *http.Client
 	privateKey crypto.PrivateKey
-	options    *DirectoryOptions
 
 	MNDListener *MNDListener
 }
 
 // NewDirectoryClient creates a new type DirectoryClient with default settings
 // TODO Add more details about those defaults, e.g. DiscoverFlags
-func NewDirectoryClient(addr string, config *tls.Config, options *DirectoryOptions) *DirectoryClient {
+func NewDirectoryClient(addr string, config *tls.Config) *DirectoryClient {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: config,
@@ -191,7 +183,6 @@ func NewDirectoryClient(addr string, config *tls.Config, options *DirectoryOptio
 		DoHEndpoint:      DefaultDoHURI,
 		privateKey:       config.Certificates[0].PrivateKey,
 		httpClient:       client,
-		options:          options,
 		DiscoverFlags: DiscoverFlagUseDoH |
 			DiscoverFlagUseHTTPS,
 		AnnounceFlags: AnnounceFlagUseHTTPS,
@@ -298,7 +289,6 @@ func (a *DirectoryClient) announceViaMND(payload *DirectoryRecordSet) error {
 func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) error {
 	payload := &DirectoryRecordSet{
 		Addresses: addresses,
-		Options:   a.options,
 		TTL:       ttl,
 	}
 
@@ -309,9 +299,8 @@ func (a *DirectoryClient) AnnounceAddresses(addresses []string, ttl uint) error 
 func (a *DirectoryClient) AnnounceBlob(data []byte, ttl uint) error {
 	var (
 		payload = &DirectoryRecordSet{
-			Blob:    data,
-			TTL:     ttl,
-			Options: a.options,
+			Blob: data,
+			TTL:  ttl,
 		}
 	)
 
